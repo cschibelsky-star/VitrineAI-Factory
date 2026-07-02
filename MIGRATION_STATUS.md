@@ -4,15 +4,17 @@
 
 `cschibelsky-star/VitrineAI-Factory`
 
-## Branch de trabalho
+## Branch atual de trabalho
 
-`docs/factory-engineering-book-base-2`
+`docs/playbooks-lote-2`
 
-## Primeira entrega realizada
+## Entregas realizadas
 
-Estrutura inicial criada para transformar o GitHub na fonte oficial da verdade da Vitrine AI Factory.
+### PR #1 — Base inicial
 
-### Arquivos adicionados
+Status: mesclado na `main`.
+
+Arquivos adicionados:
 
 - `docs/README.md`
 - `docs/constitution/README.md`
@@ -20,11 +22,19 @@ Estrutura inicial criada para transformar o GitHub na fonte oficial da verdade d
 - `docs/playbooks/README.md`
 - `docs/playbooks/volume-061-product-creation-playbook.md`
 
+### Lote 2 — Playbooks
+
+Arquivos adicionados nesta branch:
+
+- `docs/playbooks/volume-062-agent-creation-playbook.md`
+- `docs/playbooks/volume-063-engine-creation-playbook.md`
+- `docs/playbooks/volume-064-blueprint-creation-playbook.md`
+
 ## Próximas migrações
 
-1. Migrar Constituição Oficial — Volumes I a LX.
-2. Migrar Engineering Standards — Volumes XLI a LX.
-3. Migrar Playbooks — Volumes LXI em diante.
+1. Continuar Playbooks — Volume LXV em diante.
+2. Migrar Engineering Standards — Volumes XLI a LIX.
+3. Migrar Constituição Oficial — Volumes I a LX.
 4. Criar índices por coleção.
 5. Criar catálogo de Blueprints, Capabilities, Skills e Agents.
 6. Preparar documentação para Codex e implementação.
