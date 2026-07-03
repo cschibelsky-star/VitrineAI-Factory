@@ -90,9 +90,9 @@ class FactoryBlueprintResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListFactoryBlueprints::route('/'),
+            'index' => Pages\ListBlueprints::route('/'),
             'create' => Pages\CreateFactoryBlueprint::route('/create'),
-            'edit' => Pages\EditFactoryBlueprint::route('/{record}/edit'),
+            'edit' => Pages\UpdateBlueprintRecord::route('/{record}/edit'),
         ];
     }
 }
