@@ -18,34 +18,38 @@ class FactoryProjectResource extends Resource
     protected static ?string $model = FactoryProject::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationLabel = 'Projetos da Factory';
+    protected static ?string $modelLabel = 'Projeto';
+    protected static ?string $pluralModelLabel = 'Projetos';
+    protected static ?string $navigationGroup = 'Factory Enterprise';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
+                Forms\Components\TextInput::make('name')->label('Nome do Projeto')
                     ->required(),
-                Forms\Components\TextInput::make('client_name'),
-                Forms\Components\TextInput::make('product'),
-                Forms\Components\TextInput::make('domain'),
-                Forms\Components\TextInput::make('github_repository'),
-                Forms\Components\TextInput::make('branch')
+                Forms\Components\TextInput::make('client_name')->label('Cliente'),
+                Forms\Components\TextInput::make('product')->label('Produto'),
+                Forms\Components\TextInput::make('domain')->label('Domínio'),
+                Forms\Components\TextInput::make('github_repository')->label('Repositório GitHub'),
+                Forms\Components\TextInput::make('branch')->label('Branch')
                     ->required(),
-                Forms\Components\TextInput::make('deploy_path'),
-                Forms\Components\TextInput::make('environment')
+                Forms\Components\TextInput::make('deploy_path')->label('Caminho no Servidor'),
+                Forms\Components\TextInput::make('environment')->label('Ambiente')
                     ->required(),
-                Forms\Components\TextInput::make('status')
+                Forms\Components\TextInput::make('status')->label('Status')
                     ->required(),
-                Forms\Components\Textarea::make('notes')
+                Forms\Components\Textarea::make('notes')->label('Observações')
                     ->columnSpanFull(),
-                Forms\Components\TextInput::make('admin_email')
+                Forms\Components\TextInput::make('admin_email')->label('E-mail do Administrador')
                     ->email(),
-                Forms\Components\TextInput::make('admin_name'),
-                Forms\Components\TextInput::make('provisioning_status')
+                Forms\Components\TextInput::make('admin_name')->label('Nome do Administrador'),
+                Forms\Components\TextInput::make('provisioning_status')->label('Status do Provisionamento')
                     ->required(),
-                Forms\Components\Textarea::make('provisioning_log')
+                Forms\Components\Textarea::make('provisioning_log')->label('Log do Provisionamento')
                     ->columnSpanFull(),
-                Forms\Components\DateTimePicker::make('provisioned_at'),
+                Forms\Components\DateTimePicker::make('provisioned_at')->label('Provisionado em'),
             ]);
     }
 
@@ -106,11 +110,11 @@ class FactoryProjectResource extends Resource
                             'provisioned_at' => now(),
                         ]);
                     }),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->label('Editar'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()->label('Excluir selecionados'),
                 ]),
             ]);
     }
