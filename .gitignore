@@ -13,3 +13,4 @@
 *.zip
 error_log
 REAL_BUILD_REPORT.json
+/database/database.sqlite
