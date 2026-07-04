@@ -92,6 +92,24 @@ class FactoryProjectResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('provisioning_status')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('health_status')
+                    ->label('Saúde')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'online' => 'Online',
+                        'offline' => 'Offline',
+                        'unknown' => 'Não verificado',
+                        default => $state ?? 'Não verificado',
+                    })
+                    ->color(fn (?string $state): string => match ($state) {
+                        'online' => 'success',
+                        'offline' => 'danger',
+                        default => 'gray',
+                    }),
+                Tables\Columns\TextColumn::make('last_health_check_at')
+                    ->label('Última Verificação')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('provisioned_at')
                     ->dateTime()
                     ->sortable(),
@@ -108,6 +126,12 @@ class FactoryProjectResource extends Resource
                     ->action(function (FactoryProject $record) {
                         app(ProvisioningService::class)->run($record);
                     }),
+                Tables\Actions\Action::make('abrir_ambiente')
+                    ->label('Abrir Ambiente')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->color('success')
+                    ->url(fn (FactoryProject $record): ?string => $record->domain ? 'https://' . $record->domain : null)
+                    ->openUrlInNewTab(),
                 Tables\Actions\Action::make('health')
                     ->label('Verificar Saúde')
                     ->icon('heroicon-o-heart')
