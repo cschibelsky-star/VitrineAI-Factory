@@ -4,17 +4,14 @@
             <div class="text-sm text-gray-500">Projetos</div>
             <div class="text-3xl font-bold">{{ count($projects) }}</div>
         </div>
-
         <div class="p-5 rounded-xl bg-white shadow">
             <div class="text-sm text-gray-500">GitHub</div>
             <div class="text-2xl font-bold text-green-600">Online</div>
         </div>
-
         <div class="p-5 rounded-xl bg-white shadow">
             <div class="text-sm text-gray-500">Deploy</div>
             <div class="text-2xl font-bold text-green-600">Ativo</div>
         </div>
-
         <div class="p-5 rounded-xl bg-white shadow">
             <div class="text-sm text-gray-500">Backups</div>
             <div class="text-2xl font-bold text-green-600">OK</div>

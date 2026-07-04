@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Storage;
 
 class DevOpsCenter extends Page
 {
@@ -17,7 +16,6 @@ class DevOpsCenter extends Page
 
     public function mount(): void
     {
-        $json = Storage::get('devops-center/projects.json');
-        $this->projects = json_decode($json, true) ?? [];
+        $this->projects = config('devops-center.projects', []);
     }
 }
