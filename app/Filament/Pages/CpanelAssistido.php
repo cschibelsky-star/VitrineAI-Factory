@@ -11,6 +11,8 @@ class CpanelAssistido extends Page
     protected static ?string $navigationLabel = 'cPanel Assistido';
     protected static ?string $title = 'cPanel Assistido';
     protected static ?string $navigationGroup = 'Factory Enterprise';
+    protected static ?int $navigationSort = 4;
+    protected static bool $shouldRegisterNavigation = true;
     protected static string $view = 'filament.pages.cpanel-assistido';
 
     public function getProjectsProperty()
