@@ -6,6 +6,8 @@ use Symfony\Component\Process\Process;
 
 class CloneRepository
 {
+    public string $error = '';
+
     public function execute(string $repository, string $branch, string $destination): bool
     {
         if (is_dir($destination)) {
@@ -17,12 +19,14 @@ class CloneRepository
             'clone',
             '--branch',
             $branch,
-            "https://github.com/$repository.git",
+            "git@github.com:$repository.git",
             $destination,
         ]);
 
         $process->setTimeout(1800);
         $process->run();
+
+        $this->error = $process->getErrorOutput() ?: $process->getOutput();
 
         return $process->isSuccessful();
     }
