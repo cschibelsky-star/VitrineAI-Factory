@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\FactoryProjectResource\Pages;
+use App\Filament\Resources\FactoryProjectResource\RelationManagers\ProvisioningLogsRelationManager;
 use App\Filament\Resources\FactoryProjectResource\RelationManagers;
 use App\Models\FactoryProject;
 use App\Factory\Services\ProvisioningService;
@@ -118,7 +119,7 @@ class FactoryProjectResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            ProvisioningLogsRelationManager::class,
         ];
     }
 
