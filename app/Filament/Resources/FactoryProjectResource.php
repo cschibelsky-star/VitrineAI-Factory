@@ -108,7 +108,14 @@ class FactoryProjectResource extends Resource
                     ->action(function (FactoryProject $record) {
                         app(ProvisioningService::class)->run($record);
                     }),
-                Tables\Actions\EditAction::make()->label('Editar'),
+                Tables\Actions\Action::make('health')
+                    ->label('Verificar Saúde')
+                    ->icon('heroicon-o-heart')
+                    ->color('info')
+                    ->action(function (FactoryProject $record) {
+                        app(HealthCheckService::class)->check($record);
+                    }),
+                Tables\Actions\EditAction::make()->label('Editar')->label('Editar'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
