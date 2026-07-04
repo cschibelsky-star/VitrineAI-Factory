@@ -93,6 +93,19 @@ class FactoryProjectResource extends Resource
                 //
             ])
             ->actions([
+                Tables\Actions\Action::make('provisionar')
+                    ->label('Provisionar')
+                    ->icon('heroicon-o-rocket-launch')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->action(function (FactoryProject $record) {
+                        $record->update([
+                            'status' => 'active',
+                            'provisioning_status' => 'provisioned',
+                            'provisioning_log' => trim(($record->provisioning_log ?? '') . "\n[" . now() . "] Provisionamento marcado como concluído pela Factory."),
+                            'provisioned_at' => now(),
+                        ]);
+                    }),
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
