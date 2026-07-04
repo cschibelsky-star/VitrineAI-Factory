@@ -90,22 +90,6 @@ class FactoryProjectResource extends Resource
                 Tables\Columns\TextColumn::make('admin_name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('provisioning_status')
-                    ->label('Provisionamento')
-                    ->badge()
-                    ->formatStateUsing(fn (?string $state): string => match ($state) {
-                        'pending' => 'Pendente',
-                        'running' => 'Executando',
-                        'completed' => 'Concluído',
-                        'failed' => 'Falhou',
-                        'provisioned' => 'Provisionado',
-                        default => $state ?? '-',
-                    })
-                    ->color(fn (?string $state): string => match ($state) {
-                        'completed', 'provisioned' => 'success',
-                        'running' => 'warning',
-                        'failed' => 'danger',
-                        default => 'gray',
-                    })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('provisioned_at')
                     ->dateTime()
@@ -122,22 +106,6 @@ class FactoryProjectResource extends Resource
                     ->requiresConfirmation()
                     ->action(function (FactoryProject $record) {
                         app(ProvisioningService::class)->run($record);
-                    }),
-                Tables\Actions\Action::make('reexecutar')
-                    ->label('Reexecutar')
-                    ->icon('heroicon-o-arrow-path')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->action(function (FactoryProject $record) {
-                        $record->provisioningLogs()->delete();
-                        $record->forceFill([
-                            'status' => 'draft',
-                            'provisioning_status' => 'pending',
-                            'provisioning_log' => null,
-                            'provisioned_at' => null,
-                        ])->save();
-
-                        app(\App\Factory\Services\ProvisioningService::class)->run($record);
                     }),
                 Tables\Actions\EditAction::make()->label('Editar'),
             ])
