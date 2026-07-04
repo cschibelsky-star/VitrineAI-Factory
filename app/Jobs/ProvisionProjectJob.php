@@ -22,11 +22,12 @@ class ProvisionProjectJob implements ShouldQueue
 
     public function handle(): void
     {
-        $destination = $this->project->deploy_path;
+        $destination = rtrim((string) $this->project->deploy_path, '/');
 
         $this->log('Validação', 'success', 'Projeto validado.');
 
         $clone = app(CloneRepository::class);
+
         $this->runStep('Clone GitHub', function () use ($clone, $destination) {
             $ok = $clone->execute(
                 $this->project->github_repository,
@@ -34,7 +35,7 @@ class ProvisionProjectJob implements ShouldQueue
                 $destination
             );
 
-            if (! $ok && ! empty($clone->error)) {
+            if (! $ok && $clone->error) {
                 $this->log('Clone GitHub Detalhe', 'error', $clone->error);
             }
 
@@ -55,43 +56,27 @@ class ProvisionProjectJob implements ShouldQueue
             ])
         );
 
-        $this->runStep('Composer Install', fn () =>
-            app(InstallComposer::class)->execute($destination)
-        );
-
-        $this->runStep('Permissões', fn () =>
-            app(ConfigurePermissions::class)->execute($destination)
-        );
-
-        $this->runStep('Finalização', fn () =>
-            app(FinalizeInstallation::class)->execute($destination)
-        );
-
-        $this->runStep('Migrations', fn () =>
-            app(RunMigrations::class)->execute($destination)
-        );
-
-        $this->runStep('Assets', fn () =>
-            app(PublishAssets::class)->execute($destination)
-        );
+        $this->runStep('Composer Install', fn () => app(InstallComposer::class)->execute($destination));
+        $this->runStep('Permissões', fn () => app(ConfigurePermissions::class)->execute($destination));
+        $this->runStep('Finalização', fn () => app(FinalizeInstallation::class)->execute($destination));
+        $this->runStep('Migrations', fn () => app(RunMigrations::class)->execute($destination));
+        $this->runStep('Assets', fn () => app(PublishAssets::class)->execute($destination));
 
         $this->project->forceFill([
             'status' => 'active',
             'provisioning_status' => 'completed',
-            'provisioning_log' => '[' . now() . '] Provisionamento real executado pela Factory Engine.',
+            'provisioning_log' => '[' . now() . '] Provisionamento concluído pela Factory Engine.',
             'provisioned_at' => now(),
         ])->save();
+
+        $this->log('Concluído', 'success', 'Ambiente provisionado com sucesso.');
     }
 
     private function runStep(string $step, callable $callback): void
     {
         $ok = $callback();
 
-        $this->log(
-            $step,
-            $ok ? 'success' : 'error',
-            $ok ? $step . ' concluído.' : $step . ' falhou.'
-        );
+        $this->log($step, $ok ? 'success' : 'error', $ok ? "{$step} concluído." : "{$step} falhou.");
 
         if (! $ok) {
             $this->project->forceFill(['provisioning_status' => 'failed'])->save();

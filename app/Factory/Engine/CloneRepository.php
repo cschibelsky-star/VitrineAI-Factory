@@ -10,9 +10,23 @@ class CloneRepository
 
     public function execute(string $repository, string $branch, string $destination): bool
     {
-        if (is_dir($destination)) {
+        $destination = rtrim($destination, '/');
+
+        if (! $repository || ! $branch || ! $destination) {
+            $this->error = 'Repositório, branch ou destino não informado.';
+            return false;
+        }
+
+        if (is_dir($destination . '/.git')) {
             return true;
         }
+
+        if (is_dir($destination) && count(scandir($destination)) > 2) {
+            $this->error = "Destino já existe e não está vazio: {$destination}";
+            return false;
+        }
+
+        @mkdir(dirname($destination), 0755, true);
 
         $process = new Process([
             'git',

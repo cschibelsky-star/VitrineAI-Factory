@@ -9,10 +9,10 @@ class ProvisioningService
 {
     public function run(FactoryProject $project): void
     {
-        $project->update([
+        $project->forceFill([
             'provisioning_status' => 'running',
-            'provisioning_log' => '[' . now() . '] Provisionamento iniciado.',
-        ]);
+            'provisioning_log' => '[' . now() . '] Provisionamento iniciado pela Factory.',
+        ])->save();
 
         ProvisionProjectJob::dispatch($project);
     }
