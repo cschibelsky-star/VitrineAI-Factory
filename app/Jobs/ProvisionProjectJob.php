@@ -68,12 +68,12 @@ class ProvisionProjectJob implements ShouldQueue
             app(PublishAssets::class)->execute($destination)
         );
 
-        $this->project->update([
+        $this->project->forceFill([
             'status' => 'active',
             'provisioning_status' => 'completed',
             'provisioning_log' => '[' . now() . '] Provisionamento real executado pela Factory Engine.',
             'provisioned_at' => now(),
-        ]);
+        ])->save();
     }
 
     private function runStep(string $step, callable $callback): void
@@ -87,7 +87,7 @@ class ProvisionProjectJob implements ShouldQueue
         );
 
         if (! $ok) {
-            $this->project->update(['provisioning_status' => 'failed']);
+            $this->project->forceFill(['provisioning_status' => 'failed'])->save();
             throw new \RuntimeException($step . ' falhou.');
         }
     }
