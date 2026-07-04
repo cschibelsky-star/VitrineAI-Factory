@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\FactoryProjectResource\Pages;
 use App\Filament\Resources\FactoryProjectResource\RelationManagers;
 use App\Models\FactoryProject;
+use App\Factory\Services\ProvisioningService;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -103,12 +104,7 @@ class FactoryProjectResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (FactoryProject $record) {
-                        $record->update([
-                            'status' => 'active',
-                            'provisioning_status' => 'provisioned',
-                            'provisioning_log' => trim(($record->provisioning_log ?? '') . "\n[" . now() . "] Provisionamento marcado como concluído pela Factory."),
-                            'provisioned_at' => now(),
-                        ]);
+                        app(ProvisioningService::class)->run($record);
                     }),
                 Tables\Actions\EditAction::make()->label('Editar'),
             ])
