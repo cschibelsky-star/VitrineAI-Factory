@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FactoryProject extends Model
 {
@@ -18,4 +19,9 @@ class FactoryProject extends Model
         'status',
         'notes',
     ];
+
+    public function provisioningLogs(): HasMany
+    {
+        return $this->hasMany(FactoryProvisioningLog::class);
+    }
 }
