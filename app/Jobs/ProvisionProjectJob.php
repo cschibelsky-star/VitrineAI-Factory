@@ -26,13 +26,20 @@ class ProvisionProjectJob implements ShouldQueue
 
         $this->log('Validação', 'success', 'Projeto validado.');
 
-        $this->runStep('Clone GitHub', fn () =>
-            app(CloneRepository::class)->execute(
+        $clone = app(CloneRepository::class);
+        $this->runStep('Clone GitHub', function () use ($clone, $destination) {
+            $ok = $clone->execute(
                 $this->project->github_repository,
                 $this->project->branch,
                 $destination
-            )
-        );
+            );
+
+            if (! $ok && ! empty($clone->error)) {
+                $this->log('Clone GitHub Detalhe', 'error', $clone->error);
+            }
+
+            return $ok;
+        });
 
         $this->runStep('Criar .env', fn () =>
             app(CreateEnvironment::class)->execute($destination, [
