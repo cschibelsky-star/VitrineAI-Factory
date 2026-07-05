@@ -1,5 +1,14 @@
 VitrineAI Factory Enterprise
-Versao: 2.2
-Status: operacional
+Versao: 8.2
+Status: Package 8.0 aplicado e homologado
 Dominio: factory.vitrineiapro.com.br
 Branch: hostgator-baseline
+Modulos:
+- DevOps Center
+- Provisionador Inteligente
+- Marketplace de Templates
+- Pipeline Visual
+- Deploy Center
+- cPanel Assistido
+- Factory Engine
+- Health Check
