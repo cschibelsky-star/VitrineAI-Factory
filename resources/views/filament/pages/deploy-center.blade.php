@@ -18,6 +18,10 @@
                         <x-filament::button wire:click="atualizarProjeto({{ $project->id }})" color="warning">
                             Atualizar
                         </x-filament::button>
+
+                        <x-filament::button wire:click="rollbackProjeto({{ $project->id }})" color="danger">
+                            Rollback
+                        </x-filament::button>
                     </div>
                 </div>
 
