@@ -13,37 +13,32 @@ class DeploymentService
         $path = rtrim((string) $project->deploy_path, '/');
 
         if (! is_dir($path . '/.git')) {
-            $this->log($project, 'Deploy', 'error', 'Repositório Git não encontrado no caminho de deploy.');
+            $this->log($project, 'Git Pull', 'error', 'Projeto não possui repositório Git válido.');
             return false;
         }
 
-        $commands = [
-            'git pull',
-            'composer install --no-dev --optimize-autoloader',
-            'php artisan migrate --force',
-            'php artisan optimize:clear',
-        ];
+        return $this->run($project, 'Git Pull', 'git pull', $path)
+            && $this->run($project, 'Composer', 'composer install --no-dev --optimize-autoloader', $path)
+            && $this->run($project, 'Migrations', 'php artisan migrate --force', $path)
+            && $this->run($project, 'Assets', 'php artisan optimize:clear && php artisan filament:assets || true', $path);
+    }
 
-        foreach ($commands as $command) {
-            $process = Process::fromShellCommandline($command, $path);
-            $process->setTimeout(1800);
-            $process->run();
+    private function run(FactoryProject $project, string $step, string $command, string $path): bool
+    {
+        $process = Process::fromShellCommandline($command, $path);
+        $process->setTimeout(1800);
+        $process->run();
 
-            if (! $process->isSuccessful()) {
-                $this->log($project, 'Deploy', 'error', $command . ': ' . ($process->getErrorOutput() ?: $process->getOutput()));
-                $project->forceFill(['deployment_status' => 'failed'])->save();
-                return false;
-            }
+        $ok = $process->isSuccessful();
 
-            $this->log($project, 'Deploy', 'success', $command . ' concluído.');
-        }
+        $this->log(
+            $project,
+            $step,
+            $ok ? 'success' : 'error',
+            $ok ? $step . ' concluído.' : ($process->getErrorOutput() ?: $process->getOutput())
+        );
 
-        $project->forceFill([
-            'deployment_status' => 'completed',
-            'last_deploy_at' => now(),
-        ])->save();
-
-        return true;
+        return $ok;
     }
 
     private function log(FactoryProject $project, string $step, string $status, string $message): void
