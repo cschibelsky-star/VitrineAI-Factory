@@ -27,6 +27,21 @@
                     <div class="p-3 bg-gray-50 rounded-lg"><strong>Saúde:</strong> {{ $project->health_status }}</div>
                     <div class="p-3 bg-gray-50 rounded-lg"><strong>Branch:</strong> {{ $project->branch }}</div>
                 </div>
+
+                <div class="mt-4 p-4 bg-gray-50 rounded-xl">
+                    <strong>Últimos logs</strong>
+                    <div class="mt-2 space-y-1 text-xs">
+                        @foreach ($project->provisioningLogs()->latest()->take(5)->get() as $log)
+                            <div>
+                                <span class="font-semibold">{{ $log->created_at->format('d/m H:i') }}</span>
+                                —
+                                <span>{{ $log->step }}</span>
+                                —
+                                <span>{{ $log->status }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
             </div>
         @endforeach
     </div>
