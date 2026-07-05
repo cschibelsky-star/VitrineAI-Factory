@@ -10,30 +10,31 @@ use Filament\Pages\Page;
 
 class DeployCenter extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-cloud-arrow-up';
+    protected static ?string $navigationIcon = 'heroicon-o-arrow-path-rounded-square';
     protected static ?string $navigationLabel = 'Deploy Center';
     protected static ?string $title = 'Deploy Center';
     protected static ?string $navigationGroup = 'Factory Enterprise';
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 6;
     protected static string $view = 'filament.pages.deploy-center';
 
     public function getProjectsProperty()
     {
-        return FactoryProject::latest()->get();
+        return FactoryProject::orderByDesc('updated_at')->get();
     }
 
-    public function atualizar(int $projectId): void
+    public function atualizarProjeto(int $projectId): void
     {
         $project = FactoryProject::findOrFail($projectId);
+
         $ok = app(DeploymentService::class)->update($project);
 
-        Notification::make()->title($ok ? 'Deploy concluído' : 'Deploy falhou')->{$ok ? 'success' : 'danger'}()->send();
-    }
+        if ($ok) {
+            app(HealthCheckService::class)->check($project);
+        }
 
-    public function health(int $projectId): void
-    {
-        $project = FactoryProject::findOrFail($projectId);
-        app(HealthCheckService::class)->check($project);
-        Notification::make()->title('Health check executado')->success()->send();
+        Notification::make()
+            ->title($ok ? 'Projeto atualizado com sucesso' : 'Falha ao atualizar projeto')
+            ->color($ok ? 'success' : 'danger')
+            ->send();
     }
 }
