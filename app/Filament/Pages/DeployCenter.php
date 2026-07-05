@@ -2,10 +2,8 @@
 
 namespace App\Filament\Pages;
 
-use App\Factory\Services\BackupService;
-use App\Factory\Services\DeploymentService;
-use App\Factory\Services\HealthCheckService;
 use App\Models\FactoryProject;
+use App\Models\FactoryProvisioningLog;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
@@ -27,26 +25,16 @@ class DeployCenter extends Page
     {
         $project = FactoryProject::findOrFail($projectId);
 
-        $backupOk = app(BackupService::class)->create($project);
-
-        if (! $backupOk) {
-            Notification::make()
-                ->title('Backup falhou. Atualização cancelada.')
-                ->danger()
-                ->send();
-
-            return;
-        }
-
-        $ok = app(DeploymentService::class)->update($project);
-
-        if ($ok) {
-            app(HealthCheckService::class)->check($project);
-        }
+        FactoryProvisioningLog::create([
+            'factory_project_id' => $project->id,
+            'step' => 'Atualização',
+            'status' => 'info',
+            'message' => 'Atualização solicitada no Deploy Center. Execução automática será ativada após validação do fluxo seguro.',
+        ]);
 
         Notification::make()
-            ->title($ok ? 'Projeto atualizado com sucesso' : 'Falha ao atualizar projeto')
-            ->color($ok ? 'success' : 'danger')
+            ->title('Atualização registrada nos logs')
+            ->success()
             ->send();
     }
 }
