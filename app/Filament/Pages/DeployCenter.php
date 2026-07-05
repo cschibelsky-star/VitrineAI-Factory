@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Factory\Services\DeploymentService;
+use App\Factory\Services\BackupService;
 use App\Factory\Services\HealthCheckService;
 use App\Models\FactoryProject;
 use Filament\Notifications\Notification;
@@ -25,6 +26,17 @@ class DeployCenter extends Page
     public function atualizarProjeto(int $projectId): void
     {
         $project = FactoryProject::findOrFail($projectId);
+
+        $backupOk = app(BackupService::class)->create($project);
+
+        if (! $backupOk) {
+            Notification::make()
+                ->title('Backup falhou. Atualização cancelada.')
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         $ok = app(DeploymentService::class)->update($project);
 
