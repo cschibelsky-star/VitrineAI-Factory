@@ -17,13 +17,26 @@ class RollbackService
             return false;
         }
 
+        $check = Process::fromShellCommandline('git rev-parse --verify HEAD~1', $path);
+        $check->run();
+
+        if (! $check->isSuccessful()) {
+            $this->log($project, 'Rollback', 'error', 'Rollback indisponível: não há commit anterior.');
+            return false;
+        }
+
         $process = Process::fromShellCommandline('git reset --hard HEAD~1 && php artisan optimize:clear', $path);
         $process->setTimeout(1800);
         $process->run();
 
         $ok = $process->isSuccessful();
 
-        $this->log($project, 'Rollback', $ok ? 'success' : 'error', $ok ? 'Rollback Git executado.' : ($process->getErrorOutput() ?: $process->getOutput()));
+        $this->log(
+            $project,
+            'Rollback',
+            $ok ? 'success' : 'error',
+            $ok ? 'Rollback Git executado.' : ($process->getErrorOutput() ?: $process->getOutput())
+        );
 
         return $ok;
     }
