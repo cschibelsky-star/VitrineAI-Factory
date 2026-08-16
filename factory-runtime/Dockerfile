@@ -14,8 +14,8 @@ RUN composer create-project laravel/laravel:^12.0 /app --no-interaction --prefer
 FROM php:8.3-cli
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libzip-dev unzip \
-    && docker-php-ext-install pdo pdo_sqlite \
+    && apt-get install -y --no-install-recommends curl libicu-dev libonig-dev libzip-dev unzip \
+    && docker-php-ext-install intl mbstring pdo_sqlite zip \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /usr/bin/composer /usr/bin/composer
@@ -28,5 +28,8 @@ RUN chmod +x /usr/local/bin/factory-entrypoint \
     && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8080/admin >/dev/null || exit 1
 
 ENTRYPOINT ["factory-entrypoint"]
