@@ -32,6 +32,6 @@ class FactoryBlueprintEntity extends Model
 
     public function fields(): HasMany
     {
-        return $this->hasMany(FactoryBlueprintField::class, 'blueprint_entity_id')->orderBy('order_column');
+        return $this->hasMany(FactoryBlueprintColumn::class, 'blueprint_entity_id')->orderBy('order_column');
     }
 }
