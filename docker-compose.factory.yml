@@ -11,6 +11,9 @@ services:
       APP_URL: http://localhost:8080
       DB_CONNECTION: sqlite
       DB_DATABASE: /app/database/database.sqlite
+      FACTORY_ADMIN_NAME: ${FACTORY_ADMIN_NAME:-Factory Admin}
+      FACTORY_ADMIN_EMAIL: ${FACTORY_ADMIN_EMAIL:-}
+      FACTORY_ADMIN_PASSWORD: ${FACTORY_ADMIN_PASSWORD:-}
     ports:
       - "8080:8080"
     volumes:
