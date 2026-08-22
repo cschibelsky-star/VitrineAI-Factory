@@ -1,7 +1,7 @@
 FROM php:8.3-cli AS build
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git libicu-dev libonig-dev libzip-dev unzip \
+    && apt-get install -y --no-install-recommends git libicu-dev libonig-dev libsqlite3-dev libzip-dev unzip \
     && docker-php-ext-install intl mbstring pdo_sqlite zip \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,7 +21,7 @@ RUN composer create-project laravel/laravel:^12.0 /app --no-interaction --prefer
 FROM php:8.3-cli
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl libicu-dev libonig-dev libzip-dev unzip \
+    && apt-get install -y --no-install-recommends curl libicu-dev libonig-dev libsqlite3-dev libzip-dev unzip \
     && docker-php-ext-install intl mbstring pdo_sqlite zip \
     && rm -rf /var/lib/apt/lists/*
 
