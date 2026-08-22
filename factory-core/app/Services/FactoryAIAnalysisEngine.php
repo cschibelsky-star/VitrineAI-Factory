@@ -10,11 +10,15 @@ class FactoryAIAnalysisEngine
     public function analyzeProduct(FactoryProduct $product): array
     {
         $deployment = app(FactoryDeploymentEngine::class)->plan($product);
+        $health = app(FactoryHealthEngine::class)->plan($product);
+        $provisioning = app(FactoryProvisioningEngine::class)->plan($product);
         $recommendations = [];
 
-        if (! $deployment['ready']) {
-            foreach ($deployment['issues'] as $issue) {
-                $recommendations[] = 'Resolver: ' . $issue;
+        foreach ([$deployment, $health, $provisioning] as $analysis) {
+            if (! ($analysis['ready'] ?? false)) {
+                foreach ($analysis['issues'] ?? [] as $issue) {
+                    $recommendations[] = 'Resolver: ' . $issue;
+                }
             }
         }
 
@@ -26,10 +30,17 @@ class FactoryAIAnalysisEngine
             $recommendations[] = 'Definir product_dna com infraestrutura, branch, domínio e estratégia de deploy.';
         }
 
+        $ready = ($deployment['ready'] ?? false)
+            && ($health['ready'] ?? false)
+            && ($provisioning['ready'] ?? false);
+
         return [
-            'status' => $deployment['ready'] ? 'ready' : 'attention',
+            'status' => $ready ? 'ready' : 'attention',
             'product' => $product->name,
             'deployment' => $deployment,
+            'health' => $health,
+            'provisioning' => $provisioning,
+            'ai_provider' => 'roteia',
             'recommendations' => array_values(array_unique($recommendations)),
         ];
     }
@@ -54,6 +65,7 @@ class FactoryAIAnalysisEngine
             'status' => $issues === [] ? 'ready' : 'attention',
             'mission' => $mission->title,
             'issues' => $issues,
+            'ai_provider' => 'roteia',
             'next_action' => $issues[0] ?? 'Missão pronta para execução controlada.',
         ];
     }
