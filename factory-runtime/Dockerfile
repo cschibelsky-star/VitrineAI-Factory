@@ -12,7 +12,7 @@ COPY . /workspace
 
 RUN composer create-project laravel/laravel:^12.0 /app --no-interaction --prefer-dist \
     && cd /app \
-    && composer require filament/filament:^4.0 --with-all-dependencies --no-interaction \
+    && composer require filament/filament:^3.3 --with-all-dependencies --no-interaction \
     && php artisan filament:install --panels --no-interaction \
     && cp -a /workspace/factory-core/app/. /app/app/ \
     && cp -a /workspace/factory-core/database/. /app/database/ \
