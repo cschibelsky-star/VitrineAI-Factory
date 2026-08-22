@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Factory\Services\FactoryPipelineReadinessService;
 use App\Models\FactoryRelease;
 use Filament\Pages\Page;
 
@@ -16,12 +17,28 @@ class FactoryDeployCenter extends Page
 
     protected function getViewData(): array
     {
+        $readiness = app(FactoryPipelineReadinessService::class);
+
+        $candidateReleases = FactoryRelease::query()
+            ->with(['product.artifacts', 'product.builds', 'product.homologations', 'product.releases', 'build', 'homologation'])
+            ->whereIn('status', ['approved', 'ready_to_deploy'])
+            ->latest()
+            ->get();
+
+        $evaluatedReleases = $candidateReleases->map(function (FactoryRelease $release) use ($readiness) {
+            return [
+                'release' => $release,
+                'readiness' => $readiness->evaluateRelease($release),
+            ];
+        });
+
         return [
-            'readyReleases' => FactoryRelease::query()
-                ->with(['product', 'build', 'homologation'])
-                ->where('status', 'ready_to_deploy')
-                ->latest()
-                ->get(),
+            'readyReleases' => $evaluatedReleases
+                ->filter(fn (array $item) => $item['readiness']['ready'])
+                ->values(),
+            'blockedReleases' => $evaluatedReleases
+                ->reject(fn (array $item) => $item['readiness']['ready'])
+                ->values(),
             'recentDeploys' => FactoryRelease::query()
                 ->with('product')
                 ->where('status', 'deployed')
