@@ -11,11 +11,28 @@ class FactoryIntake extends Model
     use HasFactory;
 
     protected $fillable = [
-        'title', 'type', 'status', 'priority', 'request', 'intake_dna', 'product_id',
+        'title',
+        'type',
+        'origin',
+        'status',
+        'priority',
+        'request',
+        'references',
+        'profile_dna',
+        'master_prompt',
+        'ai_analysis',
+        'analysis_status',
+        'analyzed_at',
+        'intake_dna',
+        'product_id',
     ];
 
     protected $casts = [
+        'references' => 'array',
+        'profile_dna' => 'array',
+        'ai_analysis' => 'array',
         'intake_dna' => 'array',
+        'analyzed_at' => 'datetime',
     ];
 
     public function product(): BelongsTo
