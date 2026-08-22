@@ -8,14 +8,14 @@ services:
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
-      APP_URL: http://localhost:8080
+      APP_URL: http://127.0.0.1:8892
       DB_CONNECTION: sqlite
       DB_DATABASE: /app/database/database.sqlite
       FACTORY_ADMIN_NAME: ${FACTORY_ADMIN_NAME:-Factory Admin}
       FACTORY_ADMIN_EMAIL: ${FACTORY_ADMIN_EMAIL:-}
       FACTORY_ADMIN_PASSWORD: ${FACTORY_ADMIN_PASSWORD:-}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8892:8080"
     volumes:
       - factory_storage:/app/storage
       - factory_database:/app/database
