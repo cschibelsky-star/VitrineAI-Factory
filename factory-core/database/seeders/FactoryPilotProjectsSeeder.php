@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\FactoryArtifact;
 use App\Models\FactoryIntake;
 use App\Models\FactoryMission;
 use App\Models\FactoryProduct;
@@ -18,6 +19,7 @@ class FactoryPilotProjectsSeeder extends Seeder
                 'category' => 'real_estate',
                 'description' => 'Projeto-piloto da Factory para validar o pipeline ponta a ponta em uma solução digital para imobiliárias.',
                 'objective' => 'Definir a arquitetura funcional e técnica mínima do Projeto Imobiliárias e produzir evidências suficientes para avançar para desenvolvimento controlado.',
+                'architecture_document' => 'docs/pilotos/PROJETO_IMOBILIARIAS_ARQUITETURA_V0.1.md',
             ],
             [
                 'name' => 'Gabinete Online',
@@ -25,6 +27,7 @@ class FactoryPilotProjectsSeeder extends Seeder
                 'category' => 'government',
                 'description' => 'Projeto-piloto da Factory para validar o pipeline ponta a ponta em uma solução digital para gabinete.',
                 'objective' => 'Definir a arquitetura funcional e técnica mínima do Gabinete Online e produzir evidências suficientes para avançar para desenvolvimento controlado.',
+                'architecture_document' => 'docs/pilotos/GABINETE_ONLINE_ARQUITETURA_V0.1.md',
             ],
         ];
 
@@ -34,13 +37,15 @@ class FactoryPilotProjectsSeeder extends Seeder
                 [
                     'name' => $projectData['name'],
                     'category' => $projectData['category'],
-                    'status' => 'architecture',
+                    'status' => 'development',
                     'version' => '0.1',
                     'description' => $projectData['description'],
                     'product_dna' => [
                         'factory_pilot' => true,
                         'pipeline_validation' => true,
                         'infrastructure_defined' => false,
+                        'architecture_baseline' => $projectData['architecture_document'],
+                        'architecture_approved' => true,
                     ],
                 ]
             );
@@ -60,7 +65,7 @@ class FactoryPilotProjectsSeeder extends Seeder
                 ]
             );
 
-            FactoryMission::updateOrCreate(
+            $mission = FactoryMission::updateOrCreate(
                 ['title' => 'Arquitetura piloto — '.$projectData['name']],
                 [
                     'product_id' => $project->id,
@@ -89,6 +94,30 @@ class FactoryPilotProjectsSeeder extends Seeder
                             'approved_hml_before_release',
                             'approved_release_before_deploy',
                         ],
+                    ],
+                ]
+            );
+
+            FactoryArtifact::updateOrCreate(
+                [
+                    'product_id' => $project->id,
+                    'stage' => 'architecture',
+                    'type' => 'specification',
+                    'title' => 'Baseline de arquitetura — '.$projectData['name'],
+                    'version' => '0.1',
+                ],
+                [
+                    'mission_id' => $mission->id,
+                    'status' => 'approved',
+                    'location' => $projectData['architecture_document'],
+                    'evidence' => [
+                        'documented' => true,
+                        'versioned' => true,
+                        'review_status' => 'approved_for_pilot_development',
+                    ],
+                    'metadata' => [
+                        'factory_pilot' => true,
+                        'gate' => 'architecture_approved_before_development',
                     ],
                 ]
             );
