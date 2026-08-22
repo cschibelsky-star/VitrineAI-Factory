@@ -1,4 +1,11 @@
-FROM composer:2 AS build
+FROM php:8.3-cli AS build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git libicu-dev libonig-dev libzip-dev unzip \
+    && docker-php-ext-install intl mbstring pdo_sqlite zip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /workspace
 COPY . /workspace
@@ -18,7 +25,7 @@ RUN apt-get update \
     && docker-php-ext-install intl mbstring pdo_sqlite zip \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=build /app /app
 COPY factory-runtime/entrypoint.sh /usr/local/bin/factory-entrypoint
 
