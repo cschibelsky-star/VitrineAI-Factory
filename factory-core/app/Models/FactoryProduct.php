@@ -34,4 +34,29 @@ class FactoryProduct extends Model
     {
         return $this->hasMany(FactoryMission::class, 'product_id');
     }
+
+    public function intakes(): HasMany
+    {
+        return $this->hasMany(FactoryIntake::class, 'product_id');
+    }
+
+    public function artifacts(): HasMany
+    {
+        return $this->hasMany(FactoryArtifact::class, 'product_id');
+    }
+
+    public function builds(): HasMany
+    {
+        return $this->hasMany(FactoryBuild::class, 'product_id');
+    }
+
+    public function homologations(): HasMany
+    {
+        return $this->hasMany(FactoryHomologation::class, 'product_id');
+    }
+
+    public function releases(): HasMany
+    {
+        return $this->hasMany(FactoryRelease::class, 'product_id');
+    }
 }
