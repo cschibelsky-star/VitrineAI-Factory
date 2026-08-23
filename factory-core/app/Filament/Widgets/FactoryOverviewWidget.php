@@ -10,6 +10,8 @@ use App\Models\FactoryCapability;
 use App\Models\FactoryHomologation;
 use App\Models\FactoryIntake;
 use App\Models\FactoryMission;
+use App\Models\FactoryOpportunity;
+use App\Models\FactoryOpportunitySource;
 use App\Models\FactoryProduct;
 use App\Models\FactoryRelease;
 use Filament\Widgets\StatsOverviewWidget;
@@ -19,9 +21,19 @@ class FactoryOverviewWidget extends StatsOverviewWidget
 {
     protected function getStats(): array
     {
+        $highMatch = FactoryOpportunity::query()->where('match_score', '>=', 80)->count();
+        $activeSources = FactoryOpportunitySource::query()->where('status', 'active')->count();
+        $plannedSources = FactoryOpportunitySource::query()->whereIn('status', ['planned', 'manual'])->count();
+
         return [
-            Stat::make('Projetos', (string) FactoryProduct::query()->count()),
-            Stat::make('Intakes', (string) FactoryIntake::query()->count()),
+            Stat::make('Projetos', (string) FactoryProduct::query()->count())
+                ->description('Pipeline de produtos e software'),
+            Stat::make('Oportunidades', (string) FactoryOpportunity::query()->count())
+                ->description("{$highMatch} com aderência ≥ 80%"),
+            Stat::make('Fontes ativas', (string) $activeSources)
+                ->description("{$plannedSources} planejadas/manuais"),
+            Stat::make('Intakes', (string) FactoryIntake::query()->count())
+                ->description('Entradas de produto e oportunidade'),
             Stat::make('Missões', (string) FactoryMission::query()->count()),
             Stat::make('Builds', (string) FactoryBuild::query()->count()),
             Stat::make('HML', (string) FactoryHomologation::query()->count()),
