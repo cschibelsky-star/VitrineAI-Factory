@@ -19,19 +19,32 @@ class FactoryAIOrchestrator
     ) {
     }
 
-    /**
-     * Builds the provider-neutral request that will be sent to Roteia.
-     * No HTTP/provider assumptions are made here.
-     */
     public function buildAnalysisRequest(FactoryIntake $intake): array
     {
+        $requiredOutput = [
+            'profile_type',
+            'profile_dna',
+            'master_prompt',
+            'analysis',
+            'reference_assessment',
+            'assumptions',
+            'open_decisions',
+        ];
+
+        if ($intake->output_mode === 'opportunity') {
+            $requiredOutput[] = 'opportunities';
+        } else {
+            array_push($requiredOutput, 'project', 'blueprint', 'capabilities', 'missions');
+        }
+
         return [
-            'contract' => 'factory.intake.analysis.v2',
-            'objective' => 'Transform a short human need into the correct persistent profile/DNA, a Master Prompt and a controlled Factory execution plan.',
+            'contract' => 'factory.intake.analysis.v3',
+            'objective' => 'Transform a short human need into the correct persistent profile/DNA and route it to either product construction or opportunity operation.',
             'input' => [
                 'title' => $intake->title,
                 'request' => $intake->request,
                 'origin' => $intake->origin,
+                'output_mode' => $intake->output_mode,
                 'type' => $intake->type,
                 'priority' => $intake->priority,
                 'references' => $intake->references ?? [],
@@ -47,6 +60,10 @@ class FactoryAIOrchestrator
                 'instruction' => 'Classify the need into the best profile type before building the DNA. Use generic only when no specialized schema fits.',
                 'available_schemas' => $this->profileSchemas->all(),
             ],
+            'routing' => [
+                'product' => 'Create or evolve Product -> Blueprint -> Capabilities -> Missions. Build, HML, Release and Deploy remain controlled pipeline stages.',
+                'opportunity' => 'Return opportunities with type, source, deadline, match score, requirements, gaps, action plan and evidence. Do not force opportunity work into software build/deploy stages.',
+            ],
             'rules' => [
                 'references_are_context_not_copy_source' => true,
                 'do_not_invent_repository_domain_credentials_or_external_integrations' => true,
@@ -58,32 +75,22 @@ class FactoryAIOrchestrator
                 'reference_project_origin_must_extract_patterns_not_clone_client_data' => true,
                 'deployment_execution_is_external_controlled' => true,
                 'profile_dna_must_follow_selected_schema' => true,
+                'opportunity_matches_must_explain_score_and_gaps' => true,
             ],
-            'required_output' => [
-                'profile_type',
-                'profile_dna',
-                'master_prompt',
-                'analysis',
-                'project',
-                'blueprint',
-                'capabilities',
-                'missions',
-                'reference_assessment',
-                'assumptions',
-                'open_decisions',
-            ],
+            'required_output' => $requiredOutput,
         ];
     }
 
-    /**
-     * Validates and stores a provider response. The response is not materialized
-     * into Factory records until explicitly approved.
-     */
     public function applyAnalysis(FactoryIntake $intake, array $analysis): FactoryIntake
     {
-        foreach (['profile_type', 'profile_dna', 'master_prompt', 'project', 'blueprint', 'capabilities', 'missions'] as $required) {
-            if (! array_key_exists($required, $analysis)) {
-                throw new InvalidArgumentException("Factory AI analysis missing required key: {$required}");
+        $required = ['profile_type', 'profile_dna', 'master_prompt'];
+        $required = $intake->output_mode === 'opportunity'
+            ? array_merge($required, ['opportunities'])
+            : array_merge($required, ['project', 'blueprint', 'capabilities', 'missions']);
+
+        foreach ($required as $key) {
+            if (! array_key_exists($key, $analysis)) {
+                throw new InvalidArgumentException("Factory AI analysis missing required key: {$key}");
             }
         }
 
@@ -93,6 +100,10 @@ class FactoryAIOrchestrator
 
         if (! is_array($analysis['profile_dna']) || ! is_string($analysis['master_prompt'])) {
             throw new InvalidArgumentException('Factory AI analysis has invalid profile_dna or master_prompt type.');
+        }
+
+        if ($intake->output_mode === 'opportunity' && ! is_array($analysis['opportunities'])) {
+            throw new InvalidArgumentException('Factory AI opportunity analysis must return an opportunities array.');
         }
 
         $schema = $this->profileSchemas->get($analysis['profile_type']);
@@ -109,9 +120,10 @@ class FactoryAIOrchestrator
             'analysis_status' => 'ready',
             'analyzed_at' => now(),
             'intake_dna' => array_merge($intake->intake_dna ?? [], [
-                'ai_contract' => 'factory.intake.analysis.v2',
+                'ai_contract' => 'factory.intake.analysis.v3',
                 'profile_type' => $analysis['profile_type'],
                 'profile_schema_label' => $schema['label'],
+                'output_mode' => $intake->output_mode,
                 'analysis_materialized' => false,
             ]),
         ])->save();
@@ -119,12 +131,12 @@ class FactoryAIOrchestrator
         return $intake->refresh();
     }
 
-    /**
-     * Converts an approved AI analysis into the operational Factory graph:
-     * Product -> Blueprint -> Capabilities -> Missions.
-     */
     public function materializeApprovedAnalysis(FactoryIntake $intake): FactoryProduct
     {
+        if ($intake->output_mode === 'opportunity') {
+            throw new InvalidArgumentException('Opportunity output must be materialized by FactoryOpportunityService.');
+        }
+
         if ($intake->analysis_status !== 'approved') {
             throw new InvalidArgumentException('Only an approved Factory AI analysis can be materialized.');
         }
@@ -175,10 +187,7 @@ class FactoryAIOrchestrator
                 }
 
                 FactoryMission::updateOrCreate(
-                    [
-                        'product_id' => $product->id,
-                        'title' => $missionData['title'],
-                    ],
+                    ['product_id' => $product->id, 'title' => $missionData['title']],
                     [
                         'blueprint_id' => $blueprint->id,
                         'status' => 'planned',
@@ -211,11 +220,7 @@ class FactoryAIOrchestrator
 
     private function resolveProduct(FactoryIntake $intake, array $projectData): FactoryProduct
     {
-        if ($intake->origin === 'catalog_product' && $intake->product) {
-            return $intake->product;
-        }
-
-        if ($intake->origin === 'existing_evolution' && $intake->product) {
+        if (in_array($intake->origin, ['catalog_product', 'existing_evolution'], true) && $intake->product) {
             return $intake->product;
         }
 
