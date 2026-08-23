@@ -1,0 +1,236 @@
+<?php
+
+namespace App\Factory\Services;
+
+use App\Models\FactoryBlueprint;
+use App\Models\FactoryCapability;
+use App\Models\FactoryIntake;
+use App\Models\FactoryMission;
+use App\Models\FactoryProduct;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
+
+class FactoryAIOrchestrator
+{
+    /**
+     * Builds the provider-neutral request that will be sent to Roteia.
+     * No HTTP/provider assumptions are made here.
+     */
+    public function buildAnalysisRequest(FactoryIntake $intake): array
+    {
+        return [
+            'contract' => 'factory.intake.analysis.v1',
+            'objective' => 'Transform a short business need into a persistent profile/DNA, a Master Prompt and a controlled Factory construction plan.',
+            'input' => [
+                'title' => $intake->title,
+                'request' => $intake->request,
+                'origin' => $intake->origin,
+                'type' => $intake->type,
+                'priority' => $intake->priority,
+                'references' => $intake->references ?? [],
+                'linked_product' => $intake->product ? [
+                    'id' => $intake->product->id,
+                    'name' => $intake->product->name,
+                    'slug' => $intake->product->slug,
+                    'category' => $intake->product->category,
+                    'product_dna' => $intake->product->product_dna,
+                ] : null,
+            ],
+            'rules' => [
+                'references_are_context_not_copy_source' => true,
+                'do_not_invent_repository_domain_credentials_or_external_integrations' => true,
+                'separate_known_facts_from_recommendations' => true,
+                'prefer_reusable_blueprints_and_capabilities' => true,
+                'catalog_product_origin_must_provision_not_redesign' => true,
+                'reference_project_origin_must_extract_patterns_not_clone_client_data' => true,
+                'deployment_execution_is_external_controlled' => true,
+            ],
+            'required_output' => [
+                'profile_type',
+                'profile_dna',
+                'master_prompt',
+                'analysis',
+                'project',
+                'blueprint',
+                'capabilities',
+                'missions',
+                'reference_assessment',
+                'assumptions',
+                'open_decisions',
+            ],
+        ];
+    }
+
+    /**
+     * Validates and stores a provider response. The response is not materialized
+     * into Factory records until explicitly approved.
+     */
+    public function applyAnalysis(FactoryIntake $intake, array $analysis): FactoryIntake
+    {
+        foreach (['profile_dna', 'master_prompt', 'project', 'blueprint', 'capabilities', 'missions'] as $required) {
+            if (! array_key_exists($required, $analysis)) {
+                throw new InvalidArgumentException("Factory AI analysis missing required key: {$required}");
+            }
+        }
+
+        if (! is_array($analysis['profile_dna']) || ! is_string($analysis['master_prompt'])) {
+            throw new InvalidArgumentException('Factory AI analysis has invalid profile_dna or master_prompt type.');
+        }
+
+        $intake->forceFill([
+            'profile_dna' => $analysis['profile_dna'],
+            'master_prompt' => trim($analysis['master_prompt']),
+            'ai_analysis' => $analysis,
+            'analysis_status' => 'ready',
+            'analyzed_at' => now(),
+            'intake_dna' => array_merge($intake->intake_dna ?? [], [
+                'ai_contract' => 'factory.intake.analysis.v1',
+                'profile_type' => $analysis['profile_type'] ?? null,
+                'analysis_materialized' => false,
+            ]),
+        ])->save();
+
+        return $intake->refresh();
+    }
+
+    /**
+     * Converts an approved AI analysis into the operational Factory graph:
+     * Product -> Blueprint -> Capabilities -> Missions.
+     */
+    public function materializeApprovedAnalysis(FactoryIntake $intake): FactoryProduct
+    {
+        if ($intake->analysis_status !== 'approved') {
+            throw new InvalidArgumentException('Only an approved Factory AI analysis can be materialized.');
+        }
+
+        $analysis = $intake->ai_analysis ?? [];
+        $projectData = Arr::get($analysis, 'project', []);
+        $blueprintData = Arr::get($analysis, 'blueprint', []);
+        $capabilities = Arr::get($analysis, 'capabilities', []);
+        $missions = Arr::get($analysis, 'missions', []);
+
+        if (! is_array($projectData) || empty($projectData['name'])) {
+            throw new InvalidArgumentException('Approved analysis does not contain a valid project definition.');
+        }
+
+        return DB::transaction(function () use ($intake, $projectData, $blueprintData, $capabilities, $missions) {
+            $product = $this->resolveProduct($intake, $projectData);
+            $blueprint = $this->resolveBlueprint($intake, $product, $blueprintData);
+
+            foreach ($capabilities as $capabilityData) {
+                if (! is_array($capabilityData) || empty($capabilityData['name'])) {
+                    continue;
+                }
+
+                $slug = $capabilityData['slug'] ?? Str::slug($capabilityData['name']);
+                $capability = FactoryCapability::updateOrCreate(
+                    ['slug' => $slug],
+                    [
+                        'name' => $capabilityData['name'],
+                        'category' => $capabilityData['category'] ?? $product->category,
+                        'type' => $capabilityData['type'] ?? 'business',
+                        'status' => 'active',
+                        'version' => $capabilityData['version'] ?? '0.1',
+                        'description' => $capabilityData['description'] ?? null,
+                        'capability_dna' => array_merge($capabilityData['capability_dna'] ?? [], [
+                            'generated_from_intake_id' => $intake->id,
+                            'source' => 'factory_ai_orchestrator',
+                        ]),
+                    ]
+                );
+
+                $blueprint->capabilities()->syncWithoutDetaching([$capability->id]);
+            }
+
+            foreach ($missions as $index => $missionData) {
+                if (! is_array($missionData) || empty($missionData['title'])) {
+                    continue;
+                }
+
+                FactoryMission::updateOrCreate(
+                    [
+                        'product_id' => $product->id,
+                        'title' => $missionData['title'],
+                    ],
+                    [
+                        'blueprint_id' => $blueprint->id,
+                        'status' => 'planned',
+                        'priority' => $missionData['priority'] ?? $intake->priority ?? 'normal',
+                        'objective' => $missionData['objective'] ?? null,
+                        'mission_dna' => array_merge($missionData['mission_dna'] ?? [], [
+                            'generated_from_intake_id' => $intake->id,
+                            'order' => $index + 1,
+                            'execution_mode' => 'controlled',
+                            'ai_provider' => 'roteia',
+                        ]),
+                    ]
+                );
+            }
+
+            $intake->forceFill([
+                'product_id' => $product->id,
+                'status' => 'converted',
+                'intake_dna' => array_merge($intake->intake_dna ?? [], [
+                    'analysis_materialized' => true,
+                    'materialized_at' => now()->toIso8601String(),
+                    'blueprint_id' => $blueprint->id,
+                ]),
+            ])->save();
+
+            return $product->refresh();
+        });
+    }
+
+    private function resolveProduct(FactoryIntake $intake, array $projectData): FactoryProduct
+    {
+        if ($intake->origin === 'catalog_product' && $intake->product) {
+            return $intake->product;
+        }
+
+        if ($intake->origin === 'existing_evolution' && $intake->product) {
+            return $intake->product;
+        }
+
+        $slug = $projectData['slug'] ?? Str::slug($projectData['name']);
+
+        return FactoryProduct::updateOrCreate(
+            ['slug' => $slug],
+            [
+                'name' => $projectData['name'],
+                'category' => $projectData['category'] ?? 'custom',
+                'status' => 'architecture',
+                'version' => $projectData['version'] ?? '0.1',
+                'description' => $projectData['description'] ?? $intake->request,
+                'product_dna' => array_merge($intake->profile_dna ?? [], $projectData['product_dna'] ?? [], [
+                    'generated_from_intake_id' => $intake->id,
+                    'master_prompt' => $intake->master_prompt,
+                    'origin' => $intake->origin,
+                ]),
+            ]
+        );
+    }
+
+    private function resolveBlueprint(FactoryIntake $intake, FactoryProduct $product, array $blueprintData): FactoryBlueprint
+    {
+        $name = $blueprintData['name'] ?? ('Blueprint '.$product->name);
+        $slug = $blueprintData['slug'] ?? Str::slug($name);
+
+        return FactoryBlueprint::updateOrCreate(
+            ['slug' => $slug],
+            [
+                'name' => $name,
+                'category' => $blueprintData['category'] ?? $product->category,
+                'status' => $blueprintData['status'] ?? 'draft',
+                'version' => $blueprintData['version'] ?? '0.1',
+                'source_product_id' => $intake->origin === 'reference_project' ? $intake->product_id : null,
+                'description' => $blueprintData['description'] ?? 'Blueprint generated from Factory AI intake.',
+                'blueprint_dna' => array_merge($blueprintData['blueprint_dna'] ?? [], [
+                    'generated_from_intake_id' => $intake->id,
+                    'origin' => $intake->origin,
+                ]),
+            ]
+        );
+    }
+}
