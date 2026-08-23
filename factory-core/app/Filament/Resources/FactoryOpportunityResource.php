@@ -52,12 +52,32 @@ class FactoryOpportunityResource extends Resource
                     Forms\Components\TextInput::make('source')->label('Fonte'),
                     Forms\Components\TextInput::make('source_url')->label('Link da fonte')->url(),
                     Forms\Components\DateTimePicker::make('deadline_at')->label('Prazo'),
-                    Forms\Components\TextInput::make('match_score')->label('Aderência (%)')->numeric()->minValue(0)->maxValue(100),
+                    Forms\Components\TextInput::make('match_score')
+                        ->label('Aderência (%)')
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->helperText('Calculada pelo Matching Engine ponderado; não é editada manualmente.'),
+                ])->columns(2),
+
+            Forms\Components\Section::make('Matching explicável')
+                ->description('A nota final é calculada pelo motor determinístico a partir de critérios ponderados e evidências.')
+                ->schema([
+                    Forms\Components\Placeholder::make('match_level_display')
+                        ->label('Nível')
+                        ->content(fn (?FactoryOpportunity $record): string => (string) data_get($record?->match_analysis, 'match_level', 'Ainda não avaliado')),
+                    Forms\Components\Placeholder::make('matching_engine_display')
+                        ->label('Motor')
+                        ->content(fn (?FactoryOpportunity $record): string => (string) data_get($record?->match_analysis, 'engine', '—')),
+                    Forms\Components\Textarea::make('match_analysis')
+                        ->label('Breakdown completo de aderência')
+                        ->formatStateUsing(fn ($state) => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $state)
+                        ->dehydrateStateUsing(fn ($state) => is_string($state) ? (json_decode($state, true) ?: ['raw' => $state]) : $state)
+                        ->rows(16)
+                        ->columnSpanFull(),
                 ])->columns(2),
 
             Forms\Components\Section::make('Inteligência e execução')
                 ->schema([
-                    Forms\Components\Textarea::make('match_analysis')->label('Análise de aderência')->rows(8)->columnSpanFull(),
                     Forms\Components\Textarea::make('requirements')->label('Requisitos')->rows(8)->columnSpanFull(),
                     Forms\Components\Textarea::make('gaps')->label('Lacunas')->rows(8)->columnSpanFull(),
                     Forms\Components\Textarea::make('action_plan')->label('Plano de ação')->rows(10)->columnSpanFull(),
@@ -74,7 +94,15 @@ class FactoryOpportunityResource extends Resource
                 Tables\Columns\TextColumn::make('title')->label('Oportunidade')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('opportunity_type')->label('Tipo')->badge(),
                 Tables\Columns\TextColumn::make('organization')->label('Órgão / Instituição')->searchable()->placeholder('—'),
-                Tables\Columns\TextColumn::make('match_score')->label('Aderência')->suffix('%')->sortable(),
+                Tables\Columns\TextColumn::make('match_score')->label('Aderência')->suffix('%')->sortable()->placeholder('—'),
+                Tables\Columns\TextColumn::make('match_level')
+                    ->label('Nível')
+                    ->state(fn (FactoryOpportunity $record): string => (string) data_get($record->match_analysis, 'match_level', '—'))
+                    ->badge(),
+                Tables\Columns\TextColumn::make('hard_blockers')
+                    ->label('Bloqueios')
+                    ->state(fn (FactoryOpportunity $record): string => implode(', ', data_get($record->match_analysis, 'hard_blockers', [])) ?: '—')
+                    ->wrap(),
                 Tables\Columns\TextColumn::make('deadline_at')->label('Prazo')->dateTime('d/m/Y H:i')->sortable()->placeholder('—'),
                 Tables\Columns\TextColumn::make('status')->label('Status')->badge()->sortable(),
                 Tables\Columns\TextColumn::make('profile_type')->label('Perfil')->badge(),
