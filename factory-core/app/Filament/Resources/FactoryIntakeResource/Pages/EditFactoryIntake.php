@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\FactoryIntakeResource\Pages;
 
 use App\Factory\Services\FactoryAIOrchestrator;
+use App\Factory\Services\FactoryOpportunityService;
 use App\Filament\Resources\FactoryIntakeResource;
 use Filament\Actions;
 use Filament\Notifications\Notification;
@@ -22,7 +23,7 @@ class EditFactoryIntake extends EditRecord
                 ->visible(fn (): bool => in_array($this->record->analysis_status, ['pending', 'failed'], true))
                 ->requiresConfirmation()
                 ->modalHeading('Preparar análise da Factory')
-                ->modalDescription('A Factory montará o contrato estruturado para análise pelo Roteia. Esta ação não inventa nem simula uma resposta de IA.')
+                ->modalDescription('A Factory montará o contrato estruturado para análise pelo Roteia, respeitando o modo de saída escolhido.')
                 ->action(function (FactoryAIOrchestrator $orchestrator): void {
                     $request = $orchestrator->buildAnalysisRequest($this->record->fresh(['product']));
 
@@ -40,7 +41,7 @@ class EditFactoryIntake extends EditRecord
 
                     Notification::make()
                         ->title('Contrato de análise preparado')
-                        ->body('O Intake está pronto para ser enviado ao Roteia assim que o adaptador real estiver conectado.')
+                        ->body('O Intake está pronto para o adaptador real do Roteia.')
                         ->success()
                         ->send();
                 }),
@@ -52,7 +53,7 @@ class EditFactoryIntake extends EditRecord
                 ->visible(fn (): bool => $this->record->analysis_status === 'ready')
                 ->requiresConfirmation()
                 ->modalHeading('Aprovar Perfil/DNA e Prompt Mestre?')
-                ->modalDescription('A aprovação libera a materialização controlada do resultado em Projeto, Blueprint, Capabilities e Missions.')
+                ->modalDescription('A aprovação libera a materialização no pipeline correspondente: produto ou oportunidade.')
                 ->action(function (): void {
                     $this->record->forceFill([
                         'analysis_status' => 'approved',
@@ -69,15 +70,34 @@ class EditFactoryIntake extends EditRecord
                 }),
 
             Actions\Action::make('materializeFactory')
-                ->label('Iniciar construção')
-                ->icon('heroicon-o-rocket-launch')
+                ->label(fn (): string => $this->record->output_mode === 'opportunity' ? 'Criar oportunidades' : 'Iniciar construção')
+                ->icon(fn (): string => $this->record->output_mode === 'opportunity' ? 'heroicon-o-magnifying-glass-circle' : 'heroicon-o-rocket-launch')
                 ->color('primary')
                 ->visible(fn (): bool => $this->record->analysis_status === 'approved' && $this->record->status !== 'converted')
                 ->requiresConfirmation()
-                ->modalHeading('Iniciar construção na Factory?')
-                ->modalDescription('A Factory criará ou atualizará o grafo operacional aprovado: Projeto → Blueprint → Capabilities → Missions. Deploy continua sob execução controlada.')
-                ->action(function (FactoryAIOrchestrator $orchestrator): void {
-                    $product = $orchestrator->materializeApprovedAnalysis($this->record->fresh(['product']));
+                ->modalHeading(fn (): string => $this->record->output_mode === 'opportunity' ? 'Materializar oportunidades?' : 'Iniciar construção na Factory?')
+                ->modalDescription(fn (): string => $this->record->output_mode === 'opportunity'
+                    ? 'A Factory criará as oportunidades aprovadas no Radar, com aderência, requisitos, lacunas, prazos e plano de ação.'
+                    : 'A Factory criará ou atualizará Projeto → Blueprint → Capabilities → Missions. Deploy continua sob execução controlada.')
+                ->action(function (FactoryAIOrchestrator $orchestrator, FactoryOpportunityService $opportunities): void {
+                    $record = $this->record->fresh(['product']);
+
+                    if ($record->output_mode === 'opportunity') {
+                        $created = $opportunities->materializeApprovedAnalysis($record);
+
+                        $this->record->refresh();
+                        $this->refreshFormData(['status', 'intake_dna']);
+
+                        Notification::make()
+                            ->title('Oportunidades criadas')
+                            ->body(count($created).' oportunidade(s) materializada(s) no Radar da Factory.')
+                            ->success()
+                            ->send();
+
+                        return;
+                    }
+
+                    $product = $orchestrator->materializeApprovedAnalysis($record);
 
                     $this->record->refresh();
                     $this->refreshFormData(['product_id', 'status', 'intake_dna']);
