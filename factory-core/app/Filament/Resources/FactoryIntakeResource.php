@@ -24,17 +24,25 @@ class FactoryIntakeResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('O que você quer criar?')
-                ->description('Descreva a necessidade em linguagem simples. A Factory usará este briefing para estruturar o perfil/DNA e o Prompt Mestre do projeto.')
+            Forms\Components\Section::make('O que você precisa?')
+                ->description('Descreva a necessidade em linguagem simples. A Factory entende o contexto, cria o Perfil/DNA e decide o pipeline adequado.')
                 ->schema([
                     Forms\Components\TextInput::make('title')
-                        ->label('Nome curto da ideia ou projeto')
-                        ->placeholder('Ex.: CRM para barbearia')
+                        ->label('Nome curto da necessidade')
+                        ->placeholder('Ex.: CRM para barbearia / Buscar recursos para associação')
                         ->required()
                         ->maxLength(255),
+                    Forms\Components\Select::make('output_mode')
+                        ->label('Qual resultado você procura?')
+                        ->options([
+                            'product' => 'Criar ou evoluir uma solução',
+                            'opportunity' => 'Encontrar e operar oportunidades',
+                        ])
+                        ->default('product')
+                        ->required(),
                     Forms\Components\Textarea::make('request')
                         ->label('Descreva o que você precisa')
-                        ->placeholder('Ex.: Preciso de um CRM para minha barbearia com agenda, clientes, comissões e financeiro.')
+                        ->placeholder('Ex.: Preciso de um CRM para minha barbearia com agenda e financeiro. Ou: somos uma associação e queremos encontrar editais e recursos compatíveis.')
                         ->rows(7)
                         ->required()
                         ->columnSpanFull(),
@@ -43,7 +51,7 @@ class FactoryIntakeResource extends Resource
             Forms\Components\Section::make('Origem e contexto')
                 ->schema([
                     Forms\Components\Select::make('origin')
-                        ->label('Como este projeto nasce?')
+                        ->label('Como esta demanda nasce?')
                         ->options([
                             'new_idea' => 'Criar algo novo',
                             'existing_evolution' => 'Evoluir projeto existente',
@@ -57,6 +65,7 @@ class FactoryIntakeResource extends Resource
                         'evolution' => 'Evolução',
                         'correction' => 'Correção',
                         'integration' => 'Integração',
+                        'opportunity_search' => 'Busca de oportunidades',
                     ])->default('new_project')->required(),
                     Forms\Components\Select::make('priority')->label('Prioridade')->options([
                         'low' => 'Baixa', 'normal' => 'Normal', 'high' => 'Alta', 'critical' => 'Crítica',
@@ -68,17 +77,17 @@ class FactoryIntakeResource extends Resource
                         ->preload(),
                 ])->columns(2),
 
-            Forms\Components\Section::make('Referências do cliente')
-                ->description('Use logo, site, redes sociais, canal, arquivos, catálogo ou exemplos para entender o perfil do cliente. Referências orientam a solução; não devem ser copiadas automaticamente.')
+            Forms\Components\Section::make('Referências')
+                ->description('Sites, redes sociais, portfólio, documentos, catálogos, projetos anteriores ou outras referências ajudam a Factory a entender o perfil. Servem como contexto, não como fonte para cópia automática.')
                 ->schema([
                     Forms\Components\TagsInput::make('references')
                         ->label('Links e referências')
-                        ->placeholder('https://site-do-cliente.com.br')
+                        ->placeholder('https://...')
                         ->columnSpanFull(),
                 ]),
 
             Forms\Components\Section::make('Inteligência da Factory')
-                ->description('Resultado da análise de IA. O perfil/DNA representa o contexto persistente; o Prompt Mestre inicia a construção ou o provisionamento.')
+                ->description('Resultado da análise de IA: Perfil/DNA persistente, Prompt Mestre e plano estruturado de execução.')
                 ->schema([
                     Forms\Components\Select::make('analysis_status')
                         ->label('Status da análise')
@@ -115,7 +124,7 @@ class FactoryIntakeResource extends Resource
                         'triage' => 'Em triagem',
                         'approved' => 'Aprovada',
                         'rejected' => 'Descartada',
-                        'converted' => 'Convertida em projeto',
+                        'converted' => 'Convertida',
                     ])->default('new')->required(),
                 ]),
         ]);
@@ -126,6 +135,7 @@ class FactoryIntakeResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('title')->label('Entrada')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('output_mode')->label('Saída')->badge(),
                 Tables\Columns\TextColumn::make('origin')->label('Origem')->badge(),
                 Tables\Columns\TextColumn::make('analysis_status')->label('IA')->badge(),
                 Tables\Columns\TextColumn::make('priority')->label('Prioridade')->badge(),
