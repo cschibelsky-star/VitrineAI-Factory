@@ -44,13 +44,19 @@ class EditFactoryOpportunitySource extends EditRecord
                 ->action(function (FactoryOpportunitySourceReadinessService $service): void {
                     $result = $service->evaluate($this->record->fresh());
 
-                    Notification::make()
+                    $notification = Notification::make()
                         ->title($result['ready'] ? 'Fonte pronta para ativação' : 'Fonte ainda não está pronta')
                         ->body($result['ready']
                             ? 'Contrato, sincronização e evidências mínimas estão presentes.'
-                            : 'Bloqueios: '.implode(', ', $result['blockers']))
-                        ->{$result['ready'] ? 'success' : 'warning'}()
-                        ->send();
+                            : 'Bloqueios: '.implode(', ', $result['blockers']));
+
+                    if ($result['ready']) {
+                        $notification->success();
+                    } else {
+                        $notification->warning();
+                    }
+
+                    $notification->send();
                 }),
             Actions\DeleteAction::make(),
         ];
