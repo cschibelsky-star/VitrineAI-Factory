@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             CapabilityEngineSeeder::class,
             MissionAgentSeeder::class,
             FactoryPilotProjectsSeeder::class,
+            FactoryOpportunitySourcesSeeder::class,
         ]);
 
         $email = env('FACTORY_ADMIN_EMAIL');
