@@ -14,6 +14,11 @@ use InvalidArgumentException;
 
 class FactoryAIOrchestrator
 {
+    public function __construct(
+        private readonly FactoryProfileSchemaRegistry $profileSchemas,
+    ) {
+    }
+
     /**
      * Builds the provider-neutral request that will be sent to Roteia.
      * No HTTP/provider assumptions are made here.
@@ -21,8 +26,8 @@ class FactoryAIOrchestrator
     public function buildAnalysisRequest(FactoryIntake $intake): array
     {
         return [
-            'contract' => 'factory.intake.analysis.v1',
-            'objective' => 'Transform a short business need into a persistent profile/DNA, a Master Prompt and a controlled Factory construction plan.',
+            'contract' => 'factory.intake.analysis.v2',
+            'objective' => 'Transform a short human need into the correct persistent profile/DNA, a Master Prompt and a controlled Factory execution plan.',
             'input' => [
                 'title' => $intake->title,
                 'request' => $intake->request,
@@ -38,14 +43,21 @@ class FactoryAIOrchestrator
                     'product_dna' => $intake->product->product_dna,
                 ] : null,
             ],
+            'profile_classification' => [
+                'instruction' => 'Classify the need into the best profile type before building the DNA. Use generic only when no specialized schema fits.',
+                'available_schemas' => $this->profileSchemas->all(),
+            ],
             'rules' => [
                 'references_are_context_not_copy_source' => true,
                 'do_not_invent_repository_domain_credentials_or_external_integrations' => true,
                 'separate_known_facts_from_recommendations' => true,
+                'preserve_client_identity_and_improve_weak_patterns' => true,
+                'suggest_direction_when_references_are_missing' => true,
                 'prefer_reusable_blueprints_and_capabilities' => true,
                 'catalog_product_origin_must_provision_not_redesign' => true,
                 'reference_project_origin_must_extract_patterns_not_clone_client_data' => true,
                 'deployment_execution_is_external_controlled' => true,
+                'profile_dna_must_follow_selected_schema' => true,
             ],
             'required_output' => [
                 'profile_type',
@@ -69,15 +81,26 @@ class FactoryAIOrchestrator
      */
     public function applyAnalysis(FactoryIntake $intake, array $analysis): FactoryIntake
     {
-        foreach (['profile_dna', 'master_prompt', 'project', 'blueprint', 'capabilities', 'missions'] as $required) {
+        foreach (['profile_type', 'profile_dna', 'master_prompt', 'project', 'blueprint', 'capabilities', 'missions'] as $required) {
             if (! array_key_exists($required, $analysis)) {
                 throw new InvalidArgumentException("Factory AI analysis missing required key: {$required}");
             }
         }
 
+        if (! in_array($analysis['profile_type'], $this->profileSchemas->types(), true)) {
+            throw new InvalidArgumentException('Factory AI analysis returned an unknown profile_type.');
+        }
+
         if (! is_array($analysis['profile_dna']) || ! is_string($analysis['master_prompt'])) {
             throw new InvalidArgumentException('Factory AI analysis has invalid profile_dna or master_prompt type.');
         }
+
+        $schema = $this->profileSchemas->get($analysis['profile_type']);
+        $analysis['profile_schema'] = [
+            'type' => $analysis['profile_type'],
+            'label' => $schema['label'],
+            'version' => '1',
+        ];
 
         $intake->forceFill([
             'profile_dna' => $analysis['profile_dna'],
@@ -86,8 +109,9 @@ class FactoryAIOrchestrator
             'analysis_status' => 'ready',
             'analyzed_at' => now(),
             'intake_dna' => array_merge($intake->intake_dna ?? [], [
-                'ai_contract' => 'factory.intake.analysis.v1',
-                'profile_type' => $analysis['profile_type'] ?? null,
+                'ai_contract' => 'factory.intake.analysis.v2',
+                'profile_type' => $analysis['profile_type'],
+                'profile_schema_label' => $schema['label'],
                 'analysis_materialized' => false,
             ]),
         ])->save();
@@ -115,7 +139,7 @@ class FactoryAIOrchestrator
             throw new InvalidArgumentException('Approved analysis does not contain a valid project definition.');
         }
 
-        return DB::transaction(function () use ($intake, $projectData, $blueprintData, $capabilities, $missions) {
+        return DB::transaction(function () use ($intake, $analysis, $projectData, $blueprintData, $capabilities, $missions) {
             $product = $this->resolveProduct($intake, $projectData);
             $blueprint = $this->resolveBlueprint($intake, $product, $blueprintData);
 
@@ -137,6 +161,7 @@ class FactoryAIOrchestrator
                         'capability_dna' => array_merge($capabilityData['capability_dna'] ?? [], [
                             'generated_from_intake_id' => $intake->id,
                             'source' => 'factory_ai_orchestrator',
+                            'profile_type' => $analysis['profile_type'] ?? 'generic',
                         ]),
                     ]
                 );
@@ -164,6 +189,7 @@ class FactoryAIOrchestrator
                             'order' => $index + 1,
                             'execution_mode' => 'controlled',
                             'ai_provider' => 'roteia',
+                            'profile_type' => $analysis['profile_type'] ?? 'generic',
                         ]),
                     ]
                 );
@@ -207,6 +233,7 @@ class FactoryAIOrchestrator
                     'generated_from_intake_id' => $intake->id,
                     'master_prompt' => $intake->master_prompt,
                     'origin' => $intake->origin,
+                    'profile_type' => data_get($intake->intake_dna, 'profile_type', 'generic'),
                 ]),
             ]
         );
@@ -229,6 +256,7 @@ class FactoryAIOrchestrator
                 'blueprint_dna' => array_merge($blueprintData['blueprint_dna'] ?? [], [
                     'generated_from_intake_id' => $intake->id,
                     'origin' => $intake->origin,
+                    'profile_type' => data_get($intake->intake_dna, 'profile_type', 'generic'),
                 ]),
             ]
         );
