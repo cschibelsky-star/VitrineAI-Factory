@@ -14,10 +14,6 @@ class FactoryOpportunityIngestionService
     ) {
     }
 
-    /**
-     * Normalizes one external opportunity payload using the source mapping contract.
-     * The service is transport-agnostic: HTTP/API/RSS/scraping connectors feed this method.
-     */
     public function ingest(FactoryOpportunitySource $source, array $payload): FactoryOpportunity
     {
         if (! in_array($source->status, ['active', 'manual'], true)) {
@@ -72,13 +68,14 @@ class FactoryOpportunityIngestionService
         return $this->matchingEngine->buildAssessmentRequest($opportunity, $profileDna);
     }
 
-    /**
-     * Applies an AI/evidence assessment through the deterministic weighted engine.
-     * The caller cannot directly set match_score.
-     */
     public function applyMatching(FactoryOpportunity $opportunity, array $assessment): FactoryOpportunity
     {
-        $result = $this->matchingEngine->calculate($assessment);
+        $result = $this->matchingEngine->calculate(
+            $assessment,
+            null,
+            $opportunity->profile_type,
+        );
+
         $score = (float) $result['match_score'];
         $blocked = ($result['match_level'] ?? null) === 'blocked';
 
@@ -91,7 +88,9 @@ class FactoryOpportunityIngestionService
             'qualified_at' => (! $blocked && $score >= 70) ? now() : null,
             'evidence' => array_merge($opportunity->evidence ?? [], [
                 'matching_contract' => FactoryOpportunityMatchingEngine::CONTRACT,
-                'matching_engine' => $result['engine'] ?? 'deterministic-weighted-v1',
+                'matching_engine' => $result['engine'] ?? 'deterministic-weighted-profile-v1',
+                'matching_profile_type' => $opportunity->profile_type ?: 'generic',
+                'matching_weights' => $result['weights'] ?? [],
                 'matched_at' => now()->toIso8601String(),
             ]),
         ])->save();
