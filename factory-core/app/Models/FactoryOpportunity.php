@@ -13,6 +13,7 @@ class FactoryOpportunity extends Model
     protected $fillable = [
         'intake_id',
         'product_id',
+        'source_id',
         'profile_type',
         'opportunity_type',
         'status',
@@ -21,6 +22,8 @@ class FactoryOpportunity extends Model
         'territory',
         'source',
         'source_url',
+        'external_id',
+        'ingestion_status',
         'deadline_at',
         'match_score',
         'match_analysis',
@@ -29,6 +32,7 @@ class FactoryOpportunity extends Model
         'action_plan',
         'evidence',
         'opportunity_dna',
+        'raw_payload',
         'qualified_at',
         'applied_at',
         'closed_at',
@@ -43,6 +47,7 @@ class FactoryOpportunity extends Model
         'action_plan' => 'array',
         'evidence' => 'array',
         'opportunity_dna' => 'array',
+        'raw_payload' => 'array',
         'qualified_at' => 'datetime',
         'applied_at' => 'datetime',
         'closed_at' => 'datetime',
@@ -56,5 +61,10 @@ class FactoryOpportunity extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(FactoryProduct::class, 'product_id');
+    }
+
+    public function sourceRegistry(): BelongsTo
+    {
+        return $this->belongsTo(FactoryOpportunitySource::class, 'source_id');
     }
 }
