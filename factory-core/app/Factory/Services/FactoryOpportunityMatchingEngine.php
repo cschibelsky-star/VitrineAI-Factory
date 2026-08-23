@@ -7,7 +7,7 @@ use InvalidArgumentException;
 
 class FactoryOpportunityMatchingEngine
 {
-    public const CONTRACT = 'factory.opportunity.match.v2';
+    public const CONTRACT = 'factory.opportunity.match.v3';
 
     public function defaultWeights(): array
     {
@@ -23,12 +23,62 @@ class FactoryOpportunityMatchingEngine
         ];
     }
 
+    public function weightsForProfile(?string $profileType): array
+    {
+        return match ($profileType) {
+            'public_supplier' => [
+                'eligibility' => 25,
+                'segment' => 20,
+                'territory' => 10,
+                'audience' => 5,
+                'documentation' => 20,
+                'capacity' => 10,
+                'deadline' => 5,
+                'risk' => 5,
+            ],
+            'culture' => [
+                'eligibility' => 20,
+                'segment' => 20,
+                'territory' => 15,
+                'audience' => 15,
+                'documentation' => 10,
+                'capacity' => 10,
+                'deadline' => 5,
+                'risk' => 5,
+            ],
+            'nonprofit_funding' => [
+                'eligibility' => 25,
+                'segment' => 15,
+                'territory' => 10,
+                'audience' => 15,
+                'documentation' => 15,
+                'capacity' => 10,
+                'deadline' => 5,
+                'risk' => 5,
+            ],
+            'government_funding' => [
+                'eligibility' => 25,
+                'segment' => 15,
+                'territory' => 10,
+                'audience' => 5,
+                'documentation' => 15,
+                'capacity' => 20,
+                'deadline' => 5,
+                'risk' => 5,
+            ],
+            default => $this->defaultWeights(),
+        };
+    }
+
     public function buildAssessmentRequest(FactoryOpportunity $opportunity, array $profileDna): array
     {
+        $weights = $this->weightsForProfile($opportunity->profile_type);
+
         return [
             'contract' => self::CONTRACT,
             'objective' => 'Assess evidence for each deterministic matching criterion. Do not calculate the final weighted score.',
-            'weights' => $this->defaultWeights(),
+            'profile_type' => $opportunity->profile_type ?: 'generic',
+            'weights' => $weights,
             'profile_dna' => $profileDna,
             'opportunity' => [
                 'id' => $opportunity->id,
@@ -76,13 +126,14 @@ class FactoryOpportunityMatchingEngine
                 'missing_evidence_must_reduce_confidence' => true,
                 'hard_blockers_must_be_explicit' => true,
                 'source_facts_take_precedence_over_inference' => true,
+                'use_profile_specific_weights' => true,
             ],
         ];
     }
 
-    public function calculate(array $assessment, ?array $weights = null): array
+    public function calculate(array $assessment, ?array $weights = null, ?string $profileType = null): array
     {
-        $weights = $weights ?? $this->defaultWeights();
+        $weights = $weights ?? $this->weightsForProfile($profileType);
         $criteria = $assessment['criteria'] ?? null;
 
         if (! is_array($criteria)) {
@@ -134,6 +185,7 @@ class FactoryOpportunityMatchingEngine
 
         return [
             'contract' => self::CONTRACT,
+            'profile_type' => $profileType ?: 'generic',
             'match_score' => $score,
             'match_level' => $this->level($score, $hardBlockers),
             'hard_blockers' => $hardBlockers,
@@ -145,7 +197,7 @@ class FactoryOpportunityMatchingEngine
             'risks' => $assessment['risks'] ?? [],
             'action_plan' => $assessment['action_plan'] ?? [],
             'recommendation' => $assessment['recommendation'] ?? null,
-            'engine' => 'deterministic-weighted-v1',
+            'engine' => 'deterministic-weighted-profile-v1',
         ];
     }
 
