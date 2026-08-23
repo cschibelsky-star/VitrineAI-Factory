@@ -5,11 +5,15 @@ namespace App\Factory\Services;
 use App\Models\FactoryOpportunity;
 use App\Models\FactoryOpportunitySource;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 class FactoryOpportunityIngestionService
 {
+    public function __construct(
+        private readonly FactoryOpportunityMatchingEngine $matchingEngine,
+    ) {
+    }
+
     /**
      * Normalizes one external opportunity payload using the source mapping contract.
      * The service is transport-agnostic: HTTP/API/RSS/scraping connectors feed this method.
@@ -65,58 +69,31 @@ class FactoryOpportunityIngestionService
 
     public function buildMatchingRequest(FactoryOpportunity $opportunity, array $profileDna): array
     {
-        return [
-            'contract' => 'factory.opportunity.match.v1',
-            'objective' => 'Evaluate factual compatibility between a persistent profile/DNA and one normalized opportunity.',
-            'profile_dna' => $profileDna,
-            'opportunity' => [
-                'id' => $opportunity->id,
-                'profile_type' => $opportunity->profile_type,
-                'opportunity_type' => $opportunity->opportunity_type,
-                'title' => $opportunity->title,
-                'organization' => $opportunity->organization,
-                'territory' => $opportunity->territory,
-                'deadline_at' => optional($opportunity->deadline_at)->toIso8601String(),
-                'requirements' => $opportunity->requirements ?? [],
-                'opportunity_dna' => $opportunity->opportunity_dna ?? [],
-                'source' => $opportunity->source,
-                'source_url' => $opportunity->source_url,
-            ],
-            'required_output' => [
-                'match_score',
-                'match_level',
-                'reasons',
-                'requirements_met',
-                'requirements_unmet',
-                'gaps',
-                'risks',
-                'action_plan',
-                'recommendation',
-            ],
-            'rules' => [
-                'score_range_0_100' => true,
-                'do_not_invent_documents_or_eligibility' => true,
-                'identify_missing_evidence_explicitly' => true,
-                'source_facts_take_precedence_over_inference' => true,
-            ],
-        ];
+        return $this->matchingEngine->buildAssessmentRequest($opportunity, $profileDna);
     }
 
-    public function applyMatching(FactoryOpportunity $opportunity, array $result): FactoryOpportunity
+    /**
+     * Applies an AI/evidence assessment through the deterministic weighted engine.
+     * The caller cannot directly set match_score.
+     */
+    public function applyMatching(FactoryOpportunity $opportunity, array $assessment): FactoryOpportunity
     {
-        if (! isset($result['match_score']) || ! is_numeric($result['match_score'])) {
-            throw new InvalidArgumentException('Matching result requires a numeric match_score.');
-        }
-
-        $score = max(0, min(100, (float) $result['match_score']));
+        $result = $this->matchingEngine->calculate($assessment);
+        $score = (float) $result['match_score'];
+        $blocked = ($result['match_level'] ?? null) === 'blocked';
 
         $opportunity->forceFill([
             'match_score' => $score,
             'match_analysis' => $result,
             'gaps' => $result['gaps'] ?? $result['requirements_unmet'] ?? [],
             'action_plan' => $result['action_plan'] ?? [],
-            'status' => $score >= 70 ? 'qualified' : 'identified',
-            'qualified_at' => $score >= 70 ? now() : null,
+            'status' => (! $blocked && $score >= 70) ? 'qualified' : 'identified',
+            'qualified_at' => (! $blocked && $score >= 70) ? now() : null,
+            'evidence' => array_merge($opportunity->evidence ?? [], [
+                'matching_contract' => FactoryOpportunityMatchingEngine::CONTRACT,
+                'matching_engine' => $result['engine'] ?? 'deterministic-weighted-v1',
+                'matched_at' => now()->toIso8601String(),
+            ]),
         ])->save();
 
         return $opportunity->refresh();
