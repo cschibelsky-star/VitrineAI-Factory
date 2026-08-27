@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'factory-agent-bridge/**'
+      - 'docker-compose.factory-agent-bridge.hml.yml'
       - '.github/workflows/factory-agent-bridge.yml'
 
 jobs:
@@ -20,3 +21,5 @@ jobs:
         run: python -m compileall factory-agent-bridge/src
       - name: Run policy tests
         run: pytest -q factory-agent-bridge/tests
+      - name: Validate compose syntax
+        run: docker compose -f docker-compose.factory-agent-bridge.hml.yml config >/dev/null
