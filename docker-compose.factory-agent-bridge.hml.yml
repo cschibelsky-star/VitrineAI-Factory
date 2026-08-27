@@ -9,13 +9,17 @@ services:
       BRIDGE_HOST: 0.0.0.0
       BRIDGE_PORT: 8094
       BRIDGE_DB_PATH: /data/factory-agent-bridge.db
-      GITHUB_TOKEN: ${FACTORY_AGENT_GITHUB_TOKEN}
+      GITHUB_APP_ID: ${FACTORY_AGENT_GITHUB_APP_ID:-}
+      GITHUB_APP_INSTALLATION_ID: ${FACTORY_AGENT_GITHUB_APP_INSTALLATION_ID:-}
+      GITHUB_APP_PRIVATE_KEY_PATH: ${FACTORY_AGENT_GITHUB_APP_PRIVATE_KEY_PATH:-/run/secrets/github-app.pem}
+      GITHUB_TOKEN: ${FACTORY_AGENT_GITHUB_TOKEN:-}
       V5_BASE_URL: ${FACTORY_AGENT_V5_BASE_URL:-https://mcp-v5.vitrineiapro.com.br}
       V5_TOKEN: ${FACTORY_AGENT_V5_TOKEN:-}
     ports:
       - "127.0.0.1:8094:8094"
     volumes:
       - factory_agent_bridge_data:/data
+      - ${FACTORY_AGENT_GITHUB_APP_PRIVATE_KEY_HOST_PATH:-/srv/vitrine/secrets/factory-agent/github-app.pem}:/run/secrets/github-app.pem:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8094/health', timeout=3).read()"]
       interval: 15s
