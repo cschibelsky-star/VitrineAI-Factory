@@ -84,6 +84,44 @@ class AutonomousOrchestrator:
         self._persist(task)
         return task
 
+    def discover_pull_request(self, task: TaskState) -> TaskState:
+        """Advance a delegated task when Copilot has opened its PR.
+
+        Repeated calls are safe. Once the PR/head are persisted, discovery becomes a no-op.
+        """
+        if self._restore_existing(task):
+            if task.pr_number and task.head_sha:
+                return task
+
+        if not task.issue_number:
+            task.state = "needs_attention"
+            task.evidence.append({"type": "pull_request_discovery", "reason": "issue_number_missing"})
+            self._persist(task)
+            return task
+
+        pr = self.github.find_pull_request_for_issue(task.repository, task.issue_number)
+        if not pr:
+            task.state = "coding"
+            task.evidence.append({"type": "pull_request_discovery", "found": False})
+            self._persist(task)
+            return task
+
+        number = pr.get("number")
+        head = pr.get("head") or {}
+        head_sha = head.get("sha") if isinstance(head, dict) else None
+        if not number or not head_sha:
+            task.state = "needs_attention"
+            task.evidence.append({"type": "pull_request_discovery", "reason": "invalid_pr_payload"})
+            self._persist(task)
+            return task
+
+        task.pr_number = int(number)
+        task.head_sha = str(head_sha)
+        task.state = "pr_open"
+        task.evidence.append({"type": "pull_request", "number": task.pr_number, "head_sha": task.head_sha})
+        self._persist(task)
+        return task
+
     def attach_pull_request(self, task: TaskState, *, pr_number: int, head_sha: str) -> TaskState:
         task.pr_number = pr_number
         task.head_sha = head_sha
