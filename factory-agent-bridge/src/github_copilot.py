@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from urllib import error, parse, request
+
+from github_auth import GitHubCredentialProvider
 
 
 @dataclass(frozen=True)
@@ -13,16 +14,24 @@ class GitHubResponse:
 
 
 class GitHubCopilotAdapter:
-    """Minimal GitHub/Copilot adapter using the official REST API.
+    """GitHub/Copilot adapter using the official REST API.
 
-    Credentials are read only from GITHUB_TOKEN. The adapter never logs tokens.
+    Authentication prefers a GitHub App installation token. A static GITHUB_TOKEN
+    remains available only as a lab fallback. Credentials are never logged.
     """
 
-    def __init__(self, token: str | None = None, api_base: str = "https://api.github.com") -> None:
-        self.token = token or os.getenv("GITHUB_TOKEN", "")
+    def __init__(
+        self,
+        token: str | None = None,
+        api_base: str = "https://api.github.com",
+        credential_provider: GitHubCredentialProvider | None = None,
+    ) -> None:
         self.api_base = api_base.rstrip("/")
-        if not self.token:
-            raise ValueError("GITHUB_TOKEN is required")
+        self._explicit_token = token
+        self.credentials = credential_provider or GitHubCredentialProvider(self.api_base)
+
+    def _token(self) -> str:
+        return self._explicit_token or self.credentials.token()
 
     def _call(self, method: str, path: str, payload: dict | None = None) -> GitHubResponse:
         body = None if payload is None else json.dumps(payload).encode("utf-8")
@@ -32,7 +41,7 @@ class GitHubCopilotAdapter:
             method=method,
             headers={
                 "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {self.token}",
+                "Authorization": f"Bearer {self._token()}",
                 "X-GitHub-Api-Version": "2022-11-28",
                 "User-Agent": "vitrine-factory-agent-bridge",
                 "Content-Type": "application/json",
@@ -52,6 +61,11 @@ class GitHubCopilotAdapter:
     @staticmethod
     def _repo(repository: str) -> tuple[str, str]:
         return tuple(repository.split("/", 1))  # type: ignore[return-value]
+
+    def auth_mode(self) -> str:
+        if self._explicit_token:
+            return "explicit_token"
+        return self.credentials.mode()
 
     def create_issue_and_delegate(
         self,
@@ -97,6 +111,18 @@ class GitHubCopilotAdapter:
         data = self._call("GET", f"/search/issues?q={query}").data
         items = data.get("items", []) if isinstance(data, dict) else []
         return [item for item in items if isinstance(item, dict)]
+
+    def find_pull_request_for_issue(self, repository: str, issue_number: int) -> dict | None:
+        candidates = self.pull_requests_for_issue(repository, issue_number)
+        for candidate in candidates:
+            number = candidate.get("number")
+            if not number:
+                continue
+            pr = self.pull_request(repository, int(number))
+            body = str(pr.get("body") or "")
+            if f"#{issue_number}" in body or f"issues/{issue_number}" in body:
+                return pr
+        return None
 
     def changed_files(self, repository: str, pr_number: int) -> list[str]:
         owner, repo = self._repo(repository)
