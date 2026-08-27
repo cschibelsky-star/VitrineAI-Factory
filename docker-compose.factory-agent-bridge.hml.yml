@@ -8,14 +8,20 @@ services:
     environment:
       BRIDGE_HOST: 0.0.0.0
       BRIDGE_PORT: 8094
+      BRIDGE_DB_PATH: /data/factory-agent-bridge.db
       GITHUB_TOKEN: ${FACTORY_AGENT_GITHUB_TOKEN}
       V5_BASE_URL: ${FACTORY_AGENT_V5_BASE_URL:-https://mcp-v5.vitrineiapro.com.br}
       V5_TOKEN: ${FACTORY_AGENT_V5_TOKEN:-}
     ports:
       - "127.0.0.1:8094:8094"
+    volumes:
+      - factory_agent_bridge_data:/data
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8094/health', timeout=3).read()"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 10s
+
+volumes:
+  factory_agent_bridge_data:
