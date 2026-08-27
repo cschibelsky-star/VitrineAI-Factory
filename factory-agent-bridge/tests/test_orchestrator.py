@@ -1,4 +1,5 @@
 from pathlib import Path
+import tempfile
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -6,15 +7,16 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from orchestrator import AutonomousOrchestrator, TaskState
 from policy import AutonomyPolicy
+from store import TaskStore
 
 
 class FakeGitHub:
     def __init__(self):
-        self.created = False
+        self.created = 0
         self.merged = False
 
     def create_issue_and_delegate(self, **kwargs):
-        self.created = True
+        self.created += 1
         return {"number": 42}
 
     def merge_pull_request(self, repository, pr_number, expected_head_sha):
@@ -30,12 +32,13 @@ class FakeV5:
 policy = AutonomyPolicy(ROOT / "policy" / "autonomy.json")
 
 
-def build_orchestrator():
-    return AutonomousOrchestrator(policy=policy, github=FakeGitHub(), v5=FakeV5())
+def build_orchestrator(store=None):
+    github = FakeGitHub()
+    return AutonomousOrchestrator(policy=policy, github=github, v5=FakeV5(), store=store), github
 
 
 def test_delegate_low_risk_task():
-    orchestrator = build_orchestrator()
+    orchestrator, _ = build_orchestrator()
     task = TaskState(
         project="cursos-ia-mvp",
         repository="cschibelsky-star/CursosIAMVP",
@@ -47,8 +50,31 @@ def test_delegate_low_risk_task():
     assert result.issue_number == 42
 
 
+def test_delegate_is_idempotent_with_store():
+    with tempfile.TemporaryDirectory() as tmp:
+        store = TaskStore(Path(tmp) / "bridge.db")
+        orchestrator, github = build_orchestrator(store=store)
+        first = TaskState(
+            project="cursos-ia-mvp",
+            repository="cschibelsky-star/CursosIAMVP",
+            title="Tarefa unica",
+            body="Fazer uma alteracao pequena.",
+        )
+        second = TaskState(
+            project="cursos-ia-mvp",
+            repository="cschibelsky-star/CursosIAMVP",
+            title="Tarefa unica",
+            body="Fazer uma alteracao pequena.",
+        )
+        orchestrator.delegate(first)
+        result = orchestrator.delegate(second)
+        assert github.created == 1
+        assert result.issue_number == 42
+        assert any(item.get("type") == "idempotency" for item in result.evidence)
+
+
 def test_block_high_risk_task():
-    orchestrator = build_orchestrator()
+    orchestrator, _ = build_orchestrator()
     task = TaskState(
         project="core",
         repository="owner/repo",
@@ -60,7 +86,7 @@ def test_block_high_risk_task():
 
 
 def test_merge_only_with_all_gates():
-    orchestrator = build_orchestrator()
+    orchestrator, _ = build_orchestrator()
     task = TaskState(project="x", repository="owner/repo", title="Ajuste visual", body="UI", pr_number=7, head_sha="deadbeef")
     gates = {
         "ci_green": True,
@@ -76,7 +102,7 @@ def test_merge_only_with_all_gates():
 
 
 def test_hml_status_via_v5():
-    orchestrator = build_orchestrator()
+    orchestrator, _ = build_orchestrator()
     task = TaskState(project="cursos-ia-mvp", repository="owner/repo", title="Ajuste visual", body="UI")
     result = orchestrator.validate_hml_status(task, "cursos-ia-mvp")
     assert result.state == "hml_validating"
