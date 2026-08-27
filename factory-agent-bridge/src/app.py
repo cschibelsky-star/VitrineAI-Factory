@@ -6,11 +6,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from github_copilot import GitHubCopilotAdapter
+from orchestrator import AutonomousOrchestrator, TaskState
 from policy import AutonomyPolicy
+from store import TaskStore
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 POLICY_PATH = BASE_DIR / "policy" / "autonomy.json"
 POLICY = AutonomyPolicy(POLICY_PATH)
+STORE_PATH = Path(os.getenv("BRIDGE_DB_PATH", "/data/factory-agent-bridge.db"))
+STORE = TaskStore(STORE_PATH)
 
 
 def json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) -> None:
@@ -25,7 +29,7 @@ def json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) -
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/health":
-            json_response(self, 200, {"ok": True, "service": "factory-agent-bridge", "version": "0.2.0"})
+            json_response(self, 200, {"ok": True, "service": "factory-agent-bridge", "version": "0.3.0", "store": "sqlite"})
             return
         if self.path == "/policy":
             json_response(self, 200, POLICY.data)
@@ -67,45 +71,41 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/tasks/delegate":
+            project = str(payload.get("project", ""))
             repository = str(payload.get("repository", ""))
             title = str(payload.get("title", ""))
             task_body = str(payload.get("body", ""))
             base_branch = str(payload.get("base_branch", "main"))
-            if not repository or not title or not task_body:
-                json_response(self, 422, {"ok": False, "error": "repository_title_body_required"})
+            if not project or not repository or not title or not task_body:
+                json_response(self, 422, {"ok": False, "error": "project_repository_title_body_required"})
                 return
 
-            decision = POLICY.evaluate(
-                actor="copilot",
-                environment="development",
-                action="pull_request",
-                task_text=title + "\n" + task_body,
+            task = TaskState(
+                project=project,
+                repository=repository,
+                title=title,
+                body=task_body,
+                base_branch=base_branch,
             )
-            if not decision.allowed:
-                json_response(self, 403, {"ok": False, "error": decision.reason, "risk": decision.risk})
-                return
-
+            existing = STORE.get(task.task_key)
             try:
                 github = GitHubCopilotAdapter()
-                issue = github.create_issue_and_delegate(
-                    repository=repository,
-                    title=title,
-                    body=task_body,
-                    base_branch=base_branch,
-                    custom_instructions=str(payload.get("custom_instructions", "")),
-                )
+                orchestrator = AutonomousOrchestrator(policy=POLICY, github=github, v5=None, store=STORE)
+                result = orchestrator.delegate(task)
             except (ValueError, RuntimeError) as exc:
                 json_response(self, 502, {"ok": False, "error": str(exc)})
                 return
 
+            status = 200 if existing else 201
             json_response(
                 self,
-                201,
+                status,
                 {
                     "ok": True,
-                    "state": "delegated",
-                    "issue_number": issue.get("number"),
-                    "issue_url": issue.get("html_url"),
+                    "task_key": result.task_key,
+                    "state": result.state,
+                    "issue_number": result.issue_number,
+                    "idempotent_reuse": existing is not None,
                     "production": "blocked",
                 },
             )
