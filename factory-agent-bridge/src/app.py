@@ -5,6 +5,7 @@ import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+from github_copilot import GitHubCopilotAdapter
 from policy import AutonomyPolicy
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -24,7 +25,7 @@ def json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) -
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/health":
-            json_response(self, 200, {"ok": True, "service": "factory-agent-bridge", "version": "0.1.0"})
+            json_response(self, 200, {"ok": True, "service": "factory-agent-bridge", "version": "0.2.0"})
             return
         if self.path == "/policy":
             json_response(self, 200, POLICY.data)
@@ -63,6 +64,51 @@ class Handler(BaseHTTPRequestHandler):
                 "next": ["create_issue", "delegate_agent", "watch_pr", "watch_ci", "review", "merge_if_green", "deploy_hml", "validate_hml"],
             }
             json_response(self, 200, {"ok": True, "task": task})
+            return
+
+        if self.path == "/tasks/delegate":
+            repository = str(payload.get("repository", ""))
+            title = str(payload.get("title", ""))
+            task_body = str(payload.get("body", ""))
+            base_branch = str(payload.get("base_branch", "main"))
+            if not repository or not title or not task_body:
+                json_response(self, 422, {"ok": False, "error": "repository_title_body_required"})
+                return
+
+            decision = POLICY.evaluate(
+                actor="copilot",
+                environment="development",
+                action="pull_request",
+                task_text=title + "\n" + task_body,
+            )
+            if not decision.allowed:
+                json_response(self, 403, {"ok": False, "error": decision.reason, "risk": decision.risk})
+                return
+
+            try:
+                github = GitHubCopilotAdapter()
+                issue = github.create_issue_and_delegate(
+                    repository=repository,
+                    title=title,
+                    body=task_body,
+                    base_branch=base_branch,
+                    custom_instructions=str(payload.get("custom_instructions", "")),
+                )
+            except (ValueError, RuntimeError) as exc:
+                json_response(self, 502, {"ok": False, "error": str(exc)})
+                return
+
+            json_response(
+                self,
+                201,
+                {
+                    "ok": True,
+                    "state": "delegated",
+                    "issue_number": issue.get("number"),
+                    "issue_url": issue.get("html_url"),
+                    "production": "blocked",
+                },
+            )
             return
 
         json_response(self, 404, {"ok": False, "error": "not_found"})
