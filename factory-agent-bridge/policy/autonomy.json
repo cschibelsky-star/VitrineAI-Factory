@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "default": "deny",
+  "actors": {
+    "copilot": {
+      "development": {
+        "read": "allow",
+        "write": "allow",
+        "branch": "allow",
+        "pull_request": "allow",
+        "tests": "allow",
+        "review": "allow",
+        "merge_if_green": "allow"
+      },
+      "hml": {
+        "build": "allow",
+        "deploy": "allow",
+        "healthcheck": "allow",
+        "smoke_test": "allow",
+        "rollback": "allow"
+      },
+      "production": {
+        "deploy": "deny",
+        "write": "deny",
+        "secrets": "deny"
+      }
+    }
+  },
+  "gates": {
+    "merge": [
+      "ci_green",
+      "review_green",
+      "no_secrets",
+      "no_forbidden_paths",
+      "risk_not_high"
+    ],
+    "hml": [
+      "merge_completed",
+      "build_green",
+      "health_green"
+    ]
+  },
+  "forbidden_paths": [
+    ".env",
+    ".env.*",
+    "*.pem",
+    "*.key",
+    "secrets/**"
+  ],
+  "high_risk_patterns": [
+    "production",
+    "drop table",
+    "truncate table",
+    "delete from",
+    "auth",
+    "permission",
+    "credential",
+    "secret",
+    "nginx",
+    "ssl"
+  ]
+}
