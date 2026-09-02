@@ -14,12 +14,25 @@ services:
       FACTORY_ADMIN_NAME: ${FACTORY_ADMIN_NAME:-Factory Admin}
       FACTORY_ADMIN_EMAIL: ${FACTORY_ADMIN_EMAIL:-}
       FACTORY_ADMIN_PASSWORD: ${FACTORY_ADMIN_PASSWORD:-}
+      ROTEIA_BASE_URL: ${ROTEIA_BASE_URL:-https://api.roteia.ai/v1}
+      ROTEIA_API_KEY: ${ROTEIA_API_KEY:-}
+      ROTEIA_MODEL: ${ROTEIA_MODEL:-deepseek/deepseek-v4-flash}
+      ROTEIA_TIMEOUT: ${ROTEIA_TIMEOUT:-60}
+      FACTORY_OPS_BASE_URL: ${FACTORY_OPS_BASE_URL:-http://vitrine_ops_api:8080}
+      FACTORY_OPS_TOKEN: ${OPS_BROKER_TOKEN:?OPS_BROKER_TOKEN is required}
     ports:
       - "127.0.0.1:18992:8080"
     volumes:
       - factory_storage:/app/storage
       - factory_database:/app/database
+    networks:
+      - vitrine_net
 
 volumes:
   factory_storage:
   factory_database:
+
+networks:
+  vitrine_net:
+    external: true
+    name: vitrine_net

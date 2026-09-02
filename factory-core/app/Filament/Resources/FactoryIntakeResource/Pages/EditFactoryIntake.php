@@ -8,6 +8,7 @@ use App\Filament\Resources\FactoryIntakeResource;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Throwable;
 
 class EditFactoryIntake extends EditRecord
 {
@@ -23,27 +24,43 @@ class EditFactoryIntake extends EditRecord
                 ->visible(fn (): bool => in_array($this->record->analysis_status, ['pending', 'failed'], true))
                 ->requiresConfirmation()
                 ->modalHeading('Preparar análise da Factory')
-                ->modalDescription('A Factory montará o contrato estruturado para análise pelo Roteia, respeitando o modo de saída escolhido.')
+                ->modalDescription('A Factory enviará o Intake ao Roteia e validará o JSON estruturado antes de liberar a aprovação humana.')
                 ->action(function (FactoryAIOrchestrator $orchestrator): void {
-                    $request = $orchestrator->buildAnalysisRequest($this->record->fresh(['product']));
-
                     $this->record->forceFill([
                         'analysis_status' => 'analyzing',
                         'intake_dna' => array_merge($this->record->intake_dna ?? [], [
-                            'ai_request' => $request,
-                            'ai_contract' => $request['contract'],
                             'ai_provider' => 'roteia',
-                            'provider_execution_status' => 'awaiting_adapter',
+                            'provider_execution_status' => 'processing',
                         ]),
                     ])->save();
 
-                    $this->refreshFormData(['analysis_status', 'intake_dna']);
+                    try {
+                        $orchestrator->executeAnalysis($this->record->fresh(['product']));
+                        $this->record->refresh();
+                        $this->refreshFormData(['analysis_status', 'profile_dna', 'master_prompt', 'ai_analysis', 'intake_dna']);
 
-                    Notification::make()
-                        ->title('Contrato de análise preparado')
-                        ->body('O Intake está pronto para o adaptador real do Roteia.')
-                        ->success()
-                        ->send();
+                        Notification::make()
+                            ->title('Análise concluída pelo Roteia')
+                            ->body('O Perfil/DNA e o Prompt Mestre estão prontos para revisão e aprovação.')
+                            ->success()
+                            ->send();
+                    } catch (Throwable $e) {
+                        $this->record->forceFill([
+                            'analysis_status' => 'failed',
+                            'intake_dna' => array_merge($this->record->intake_dna ?? [], [
+                                'provider_execution_status' => 'failed',
+                                'provider_error' => mb_substr($e->getMessage(), 0, 1000),
+                            ]),
+                        ])->save();
+
+                        $this->refreshFormData(['analysis_status', 'intake_dna']);
+
+                        Notification::make()
+                            ->title('Falha na análise pelo Roteia')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
                 }),
 
             Actions\Action::make('approveAnalysis')

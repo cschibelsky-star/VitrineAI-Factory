@@ -9,8 +9,10 @@ use App\Models\FactoryMission;
 use App\Models\FactoryProduct;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use RuntimeException;
 
 class FactoryAIOrchestrator
 {
@@ -79,6 +81,72 @@ class FactoryAIOrchestrator
             ],
             'required_output' => $requiredOutput,
         ];
+    }
+
+    public function executeAnalysis(FactoryIntake $intake): FactoryIntake
+    {
+        $request = $this->buildAnalysisRequest($intake->fresh(['product']));
+        $baseUrl = rtrim((string) env('ROTEIA_BASE_URL', 'https://api.roteia.ai/v1'), '/');
+        $apiKey = trim((string) env('ROTEIA_API_KEY', ''));
+        $model = (string) env('ROTEIA_MODEL', 'deepseek/deepseek-v4-flash');
+        $timeout = max(10, (int) env('ROTEIA_TIMEOUT', 60));
+
+        if ($apiKey === '') {
+            throw new RuntimeException('ROTEIA_API_KEY ausente no ambiente da Factory.');
+        }
+
+        $prompt = "Você é o arquiteto de intake da Vitrine IA Pro Factory. Analise o contrato abaixo e responda SOMENTE com um objeto JSON válido, sem markdown, sem comentários e sem texto fora do JSON. Preserve fatos conhecidos, não invente credenciais, domínios, repositórios ou integrações.\n\n"
+            . json_encode($request, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+
+        $response = Http::withToken($apiKey)
+            ->acceptJson()
+            ->timeout($timeout)
+            ->post($baseUrl.'/chat/completions', [
+                'model' => $model,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'Retorne apenas JSON estritamente válido aderente ao contrato solicitado.',
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt,
+                    ],
+                ],
+                'temperature' => 0.2,
+            ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException('Roteia HTTP '.$response->status().': '.mb_substr($response->body(), 0, 1000));
+        }
+
+        $content = trim((string) data_get($response->json(), 'choices.0.message.content', ''));
+        if ($content === '') {
+            throw new RuntimeException('Roteia respondeu sem conteúdo em choices[0].message.content.');
+        }
+
+        if (str_starts_with($content, '```')) {
+            $content = preg_replace('/^```(?:json)?\s*/i', '', $content) ?? $content;
+            $content = preg_replace('/\s*```$/', '', $content) ?? $content;
+            $content = trim($content);
+        }
+
+        $analysis = json_decode($content, true);
+        if (! is_array($analysis) || json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException('Roteia retornou JSON inválido: '.json_last_error_msg());
+        }
+
+        $intake->forceFill([
+            'intake_dna' => array_merge($intake->intake_dna ?? [], [
+                'ai_request' => $request,
+                'ai_contract' => $request['contract'],
+                'ai_provider' => 'roteia',
+                'ai_model' => $model,
+                'provider_execution_status' => 'completed',
+            ]),
+        ])->save();
+
+        return $this->applyAnalysis($intake->fresh(['product']), $analysis);
     }
 
     public function applyAnalysis(FactoryIntake $intake, array $analysis): FactoryIntake

@@ -55,11 +55,42 @@ class FactoryOpportunityActionResource extends Resource
                 ])->columns(2),
 
             Forms\Components\Section::make('Evidências e dependências')
+                ->description('Use JSON válido. A conclusão só é liberada quando todas as evidências exigidas estiverem presentes nas evidências de conclusão.')
                 ->schema([
-                    Forms\Components\Textarea::make('dependencies')->label('Dependências')->rows(5)->columnSpanFull(),
-                    Forms\Components\Textarea::make('required_evidence')->label('Evidências exigidas')->rows(6)->columnSpanFull(),
-                    Forms\Components\Textarea::make('completion_evidence')->label('Evidências de conclusão')->rows(6)->columnSpanFull(),
-                    Forms\Components\Textarea::make('action_dna')->label('DNA da ação')->rows(6)->columnSpanFull(),
+                    Forms\Components\Placeholder::make('evidence_readiness')
+                        ->label('Prontidão para conclusão')
+                        ->content(function (?FactoryOpportunityAction $record): string {
+                            if (! $record) {
+                                return 'Salve a ação para validar as evidências.';
+                            }
+
+                            $check = app(\App\Factory\Services\FactoryOpportunityActionEngine::class)->canComplete($record);
+
+                            return $check['ready']
+                                ? 'Pronta para conclusão'
+                                : 'Faltam: '.implode(', ', $check['missing']);
+                        })
+                        ->columnSpanFull(),
+                    Forms\Components\Textarea::make('dependencies')
+                        ->label('Dependências')
+                        ->formatStateUsing(fn ($state) => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $state)
+                        ->dehydrateStateUsing(fn ($state) => is_string($state) ? (json_decode($state, true) ?: []) : ($state ?? []))
+                        ->rows(5)->columnSpanFull(),
+                    Forms\Components\Textarea::make('required_evidence')
+                        ->label('Evidências exigidas')
+                        ->formatStateUsing(fn ($state) => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $state)
+                        ->dehydrateStateUsing(fn ($state) => is_string($state) ? (json_decode($state, true) ?: []) : ($state ?? []))
+                        ->rows(6)->columnSpanFull(),
+                    Forms\Components\Textarea::make('completion_evidence')
+                        ->label('Evidências de conclusão')
+                        ->formatStateUsing(fn ($state) => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $state)
+                        ->dehydrateStateUsing(fn ($state) => is_string($state) ? (json_decode($state, true) ?: []) : ($state ?? []))
+                        ->rows(6)->columnSpanFull(),
+                    Forms\Components\Textarea::make('action_dna')
+                        ->label('DNA da ação')
+                        ->formatStateUsing(fn ($state) => is_array($state) ? json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $state)
+                        ->dehydrateStateUsing(fn ($state) => is_string($state) ? (json_decode($state, true) ?: []) : ($state ?? []))
+                        ->rows(6)->columnSpanFull(),
                 ]),
         ]);
     }

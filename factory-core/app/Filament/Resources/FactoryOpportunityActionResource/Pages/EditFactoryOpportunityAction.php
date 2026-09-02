@@ -28,7 +28,13 @@ class EditFactoryOpportunityAction extends EditRecord
                     ->danger()
                     ->persistent()
                     ->send();
+            } elseif ($this->record->status !== 'completed') {
+                $data['completed_at'] = now();
             }
+        }
+
+        if (($data['status'] ?? null) !== 'completed' && $this->record->status === 'completed') {
+            $data['completed_at'] = null;
         }
 
         return $data;
