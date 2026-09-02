@@ -11,11 +11,12 @@ fi
 : "${APP_DEBUG:=true}"
 : "${APP_URL:=http://localhost:8080}"
 : "${DB_CONNECTION:=sqlite}"
-: "${DB_DATABASE:=/app/database/database.sqlite}"
+: "${DB_DATABASE:=/data/database.sqlite}"
 
 export APP_ENV APP_DEBUG APP_URL DB_CONNECTION DB_DATABASE
 
-touch /app/database/database.sqlite
+mkdir -p "$(dirname "$DB_DATABASE")"
+touch "$DB_DATABASE"
 
 php artisan key:generate --force --no-interaction
 php artisan migrate --force --no-interaction
