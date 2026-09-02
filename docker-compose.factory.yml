@@ -10,7 +10,7 @@ services:
       APP_DEBUG: "true"
       APP_URL: http://127.0.0.1:18992
       DB_CONNECTION: sqlite
-      DB_DATABASE: /app/database/database.sqlite
+      DB_DATABASE: /data/database.sqlite
       FACTORY_ADMIN_NAME: ${FACTORY_ADMIN_NAME:-Factory Admin}
       FACTORY_ADMIN_EMAIL: ${FACTORY_ADMIN_EMAIL:-}
       FACTORY_ADMIN_PASSWORD: ${FACTORY_ADMIN_PASSWORD:-}
@@ -24,7 +24,7 @@ services:
       - "127.0.0.1:18992:8080"
     volumes:
       - factory_storage:/app/storage
-      - factory_database:/app/database
+      - factory_database:/data
     networks:
       - vitrine_net
 
