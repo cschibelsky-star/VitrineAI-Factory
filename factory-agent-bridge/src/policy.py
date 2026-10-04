@@ -22,7 +22,10 @@ class AutonomyPolicy:
     def _path_forbidden(self, paths: Iterable[str]) -> bool:
         patterns = self.data.get("forbidden_paths", [])
         for raw_path in paths:
-            normalized = str(raw_path).replace("\\", "/").lstrip("./")
+            normalized = str(raw_path).replace("\\", "/")
+            while normalized.startswith("./"):
+                normalized = normalized[2:]
+            normalized = normalized.lstrip("/")
             parts = tuple(part for part in normalized.split("/") if part)
             suffixes = ["/".join(parts[index:]) for index in range(len(parts))] or [normalized]
             if any(fnmatch.fnmatch(candidate, pattern) for candidate in suffixes for pattern in patterns):
