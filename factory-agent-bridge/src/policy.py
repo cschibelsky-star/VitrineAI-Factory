@@ -21,7 +21,13 @@ class AutonomyPolicy:
 
     def _path_forbidden(self, paths: Iterable[str]) -> bool:
         patterns = self.data.get("forbidden_paths", [])
-        return any(fnmatch.fnmatch(path, pattern) for path in paths for pattern in patterns)
+        for raw_path in paths:
+            normalized = str(raw_path).replace("\\", "/").lstrip("./")
+            parts = tuple(part for part in normalized.split("/") if part)
+            suffixes = ["/".join(parts[index:]) for index in range(len(parts))] or [normalized]
+            if any(fnmatch.fnmatch(candidate, pattern) for candidate in suffixes for pattern in patterns):
+                return True
+        return False
 
     def _high_risk(self, text: str) -> bool:
         lowered = text.lower()
@@ -50,10 +56,17 @@ class AutonomyPolicy:
         if configured != "allow":
             return Decision(False, "policy_denied", "high" if environment == "production" else "medium")
 
+        actual = gates or {}
+
         if action == "merge_if_green":
             required = self.data.get("gates", {}).get("merge", [])
-            actual = gates or {}
-            missing = [gate for gate in required if not actual.get(gate, False)]
+            missing = [gate for gate in required if actual.get(gate) is not True]
+            if missing:
+                return Decision(False, "missing_gates:" + ",".join(missing), "medium")
+
+        if environment == "hml" and action == "deploy":
+            required = self.data.get("gates", {}).get("hml", [])
+            missing = [gate for gate in required if actual.get(gate) is not True]
             if missing:
                 return Decision(False, "missing_gates:" + ",".join(missing), "medium")
 
