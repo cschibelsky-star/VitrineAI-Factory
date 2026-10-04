@@ -56,3 +56,58 @@ def test_merge_allowed_when_all_gates_green():
         gates=gates,
     )
     assert decision.allowed is True
+
+
+def test_nested_secret_paths_are_denied():
+    for path in ["service/.env", "service/.env.production", "service/secrets/token.txt"]:
+        decision = policy.evaluate(
+            actor="copilot",
+            environment="development",
+            action="write",
+            changed_paths=[path],
+        )
+        assert decision.allowed is False
+        assert decision.reason == "forbidden_path"
+
+
+def test_merge_rejects_truthy_non_boolean_gate_values():
+    gates = {
+        "ci_green": "false",
+        "review_green": "true",
+        "no_secrets": "true",
+        "no_forbidden_paths": "true",
+        "risk_not_high": "true",
+    }
+    decision = policy.evaluate(
+        actor="copilot",
+        environment="development",
+        action="merge_if_green",
+        gates=gates,
+    )
+    assert decision.allowed is False
+    assert decision.reason.startswith("missing_gates:")
+
+
+def test_hml_deploy_requires_hml_gates():
+    decision = policy.evaluate(
+        actor="copilot",
+        environment="hml",
+        action="deploy",
+        gates={},
+    )
+    assert decision.allowed is False
+    assert decision.reason.startswith("missing_gates:")
+
+
+def test_hml_deploy_allowed_when_all_hml_gates_green():
+    decision = policy.evaluate(
+        actor="copilot",
+        environment="hml",
+        action="deploy",
+        gates={
+            "merge_completed": True,
+            "build_green": True,
+            "health_green": True,
+        },
+    )
+    assert decision.allowed is True
