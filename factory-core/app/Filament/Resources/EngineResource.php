@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources;
 
+use BackedEnum;
+use UnitEnum;
 use App\Filament\Resources\EngineResource\Pages;
 use App\Models\Engine;
 use Filament\Forms;
@@ -20,9 +22,9 @@ class EngineResource extends Resource
 {
     protected static ?string $model = Engine::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-cog-6-tooth';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    protected static ?string $navigationGroup = 'Vitrine IA Factory';
+    protected static string|UnitEnum|null $navigationGroup = 'Vitrine IA Factory';
 
     protected static ?string $navigationLabel = 'Engines';
 
