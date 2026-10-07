@@ -21,9 +21,9 @@ class EngineTypeResource extends Resource
 
     protected static ?string $navigationLabel = 'Tipos de Engine';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->components([
             Forms\Components\TextInput::make('name')
                 ->label('Nome')
                 ->required()
