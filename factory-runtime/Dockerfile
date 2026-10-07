@@ -1,4 +1,11 @@
-FROM composer:2 AS build
+FROM php:8.3-cli AS build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libicu-dev libonig-dev libzip-dev unzip \
+    && docker-php-ext-install intl mbstring pdo_sqlite zip \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /workspace
 COPY . /workspace
@@ -9,7 +16,8 @@ RUN composer create-project laravel/laravel:^12.0 /app --no-interaction --prefer
     && php artisan filament:install --panels --no-interaction \
     && cp -a /workspace/factory-core/app/. /app/app/ \
     && cp -a /workspace/factory-core/database/. /app/database/ \
-    && cp -a /workspace/factory-core/resources/. /app/resources/
+    && cp -a /workspace/factory-core/resources/. /app/resources/ \
+    && cp -a /workspace/factory-core/tests/. /app/tests/
 
 FROM php:8.3-cli
 
@@ -24,7 +32,7 @@ COPY factory-runtime/entrypoint.sh /usr/local/bin/factory-entrypoint
 
 WORKDIR /app
 RUN chmod +x /usr/local/bin/factory-entrypoint \
-    && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
+    && mkdir -p storage/app storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
 EXPOSE 8080
