@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Models\Engine;
-use App\Repositories\Contracts\EngineRepositoryInterface;
+use App\Repositories\EngineRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Str;
 
 class EngineService
 {
-    public function __construct(private readonly EngineRepositoryInterface $repository) {}
+    public function __construct(private readonly EngineRepository $repository) {}
 
     public function paginate(int $perPage = 15): LengthAwarePaginator
     {
