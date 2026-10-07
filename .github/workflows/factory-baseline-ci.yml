@@ -1,0 +1,80 @@
+name: Factory Baseline CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "factory-core/**"
+      - "factory-runtime/**"
+      - "docker-compose.factory.yml"
+      - ".github/workflows/factory-baseline-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-baseline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline-smoke:
+    name: Baseline Docker + Laravel smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate compose
+        run: docker compose -f docker-compose.factory.yml config
+
+      - name: Build Factory HML image
+        run: docker compose -f docker-compose.factory.yml build --pull factory
+
+      - name: Start isolated Factory
+        env:
+          FACTORY_ADMIN_NAME: CI Factory Admin
+          FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
+          FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
+        run: docker compose -f docker-compose.factory.yml up -d factory
+
+      - name: Wait for health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' vitrine_factory_hml 2>/dev/null || true)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            if [ "$status" = "unhealthy" ] || [ "$status" = "exited" ]; then
+              docker compose -f docker-compose.factory.yml logs --no-color factory
+              exit 1
+            fi
+            sleep 5
+          done
+          docker compose -f docker-compose.factory.yml logs --no-color factory
+          exit 1
+
+      - name: Laravel smoke
+        run: |
+          docker exec vitrine_factory_hml php artisan about --only=environment
+          docker exec vitrine_factory_hml php artisan route:list
+          curl --fail --silent --show-error http://127.0.0.1:8080/admin >/dev/null
+
+      - name: Factory core PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec vitrine_factory_hml sh -lc 'find /app/app /app/database -type f -name "*.php" -print0 | xargs -0 -n1 php -l'
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.factory.yml logs --no-color factory
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.factory.yml down -v --remove-orphans
