@@ -4,8 +4,8 @@ namespace App\Filament\Resources;
 
 use BackedEnum;
 use UnitEnum;
-use App\Filament\Resources\FactoryProductResource\Pages;
-use App\Models\FactoryProduct;
+use App\Filament\Resources\FactoryBlueprintResource\Pages;
+use App\Models\FactoryBlueprint;
 use Filament\Forms;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -18,19 +18,15 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
-class FactoryProductResource extends Resource
+class FactoryBlueprintResource extends Resource
 {
-    protected static ?string $model = FactoryProduct::class;
+    protected static ?string $model = FactoryBlueprint::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Factory Core';
+    protected static string|UnitEnum|null $navigationGroup = 'Vitrine IA Factory';
 
-    protected static ?string $navigationLabel = 'Produtos';
-
-    protected static ?string $modelLabel = 'Produto';
-
-    protected static ?string $pluralModelLabel = 'Produtos';
+    protected static ?string $navigationLabel = 'Blueprints';
 
     public static function form(Schema $schema): Schema
     {
@@ -42,21 +38,11 @@ class FactoryProductResource extends Resource
                 ->afterStateUpdated(fn (string $state, Set $set) => $set('slug', Str::slug($state))),
 
             Forms\Components\TextInput::make('slug')
-                ->label('Slug')
                 ->required()
                 ->unique(ignoreRecord: true),
 
-            Forms\Components\Select::make('category')
-                ->label('Categoria')
-                ->options([
-                    'portal' => 'Portal',
-                    'tv' => 'TV Digital',
-                    'guide' => 'Guia Digital',
-                    'institutional' => 'Institucional',
-                    'crm' => 'CRM',
-                    'erp' => 'ERP',
-                    'builder' => 'Builder',
-                ]),
+            Forms\Components\TextInput::make('category')
+                ->label('Categoria'),
 
             Forms\Components\Select::make('status')
                 ->label('Status')
@@ -64,22 +50,26 @@ class FactoryProductResource extends Resource
                     'draft' => 'Rascunho',
                     'foundation' => 'Fundador',
                     'active' => 'Ativo',
-                    'paused' => 'Pausado',
                     'archived' => 'Arquivado',
                 ])
                 ->default('draft'),
 
             Forms\Components\TextInput::make('version')
                 ->label('Versão')
-                ->default('0.1'),
+                ->default('0.1.0'),
 
-            Forms\Components\TextInput::make('github_repository')
-                ->label('Repositório GitHub')
-                ->url()
-                ->maxLength(255),
+            Forms\Components\Select::make('source_product_id')
+                ->label('Produto origem')
+                ->relationship('sourceProduct', 'name')
+                ->searchable()
+                ->preload(),
 
             Forms\Components\Textarea::make('description')
                 ->label('Descrição')
+                ->columnSpanFull(),
+
+            Forms\Components\KeyValue::make('blueprint_dna')
+                ->label('Blueprint DNA')
                 ->columnSpanFull(),
         ])->columns(2);
     }
@@ -88,11 +78,11 @@ class FactoryProductResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->label('Produto')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('name')->label('Blueprint')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('category')->label('Categoria')->badge()->sortable(),
                 Tables\Columns\TextColumn::make('status')->label('Status')->badge()->sortable(),
                 Tables\Columns\TextColumn::make('version')->label('Versão'),
-                Tables\Columns\TextColumn::make('github_repository')->label('GitHub')->limit(40),
+                Tables\Columns\TextColumn::make('sourceProduct.name')->label('Origem')->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->label('Atualizado')->dateTime('d/m/Y H:i')->sortable(),
             ])
             ->recordActions([
@@ -109,9 +99,9 @@ class FactoryProductResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListFactoryProducts::route('/'),
-            'create' => Pages\CreateFactoryProduct::route('/create'),
-            'edit' => Pages\EditFactoryProduct::route('/{record}/edit'),
+            'index' => Pages\ListBlueprints::route('/'),
+            'create' => Pages\CreateFactoryBlueprint::route('/create'),
+            'edit' => Pages\UpdateBlueprintRecord::route('/{record}/edit'),
         ];
     }
 }
