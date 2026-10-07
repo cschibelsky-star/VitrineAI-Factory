@@ -5,10 +5,15 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\FactoryCapabilityResource\Pages;
 use App\Models\FactoryCapability;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
 class FactoryCapabilityResource extends Resource
@@ -28,7 +33,7 @@ class FactoryCapabilityResource extends Resource
                 ->label('Nome')
                 ->required()
                 ->live(onBlur: true)
-                ->afterStateUpdated(fn (string $state, Forms\Set $set) => $set('slug', Str::slug($state))),
+                ->afterStateUpdated(fn (string $state, Set $set) => $set('slug', Str::slug($state))),
 
             Forms\Components\TextInput::make('slug')
                 ->required()
@@ -85,12 +90,14 @@ class FactoryCapabilityResource extends Resource
                     'archived' => 'Arquivada',
                 ]),
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
