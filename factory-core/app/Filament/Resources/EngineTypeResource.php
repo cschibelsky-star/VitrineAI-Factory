@@ -5,10 +5,15 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EngineTypeResource\Pages;
 use App\Models\EngineType;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
 class EngineTypeResource extends Resource
@@ -28,7 +33,7 @@ class EngineTypeResource extends Resource
                 ->label('Nome')
                 ->required()
                 ->live(onBlur: true)
-                ->afterStateUpdated(fn (string $state, Forms\Set $set) => $set('slug', Str::slug($state))),
+                ->afterStateUpdated(fn (string $state, Set $set) => $set('slug', Str::slug($state))),
 
             Forms\Components\TextInput::make('slug')
                 ->required()
@@ -57,12 +62,14 @@ class EngineTypeResource extends Resource
                 Tables\Columns\IconColumn::make('is_active')->label('Ativo')->boolean(),
                 Tables\Columns\TextColumn::make('updated_at')->label('Atualizado')->dateTime('d/m/Y H:i')->sortable(),
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
