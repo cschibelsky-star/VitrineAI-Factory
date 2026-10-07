@@ -5,10 +5,15 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\FactoryBlueprintResource\Pages;
 use App\Models\FactoryBlueprint;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Str;
 
 class FactoryBlueprintResource extends Resource
@@ -28,7 +33,7 @@ class FactoryBlueprintResource extends Resource
                 ->label('Nome')
                 ->required()
                 ->live(onBlur: true)
-                ->afterStateUpdated(fn (string $state, Forms\Set $set) => $set('slug', Str::slug($state))),
+                ->afterStateUpdated(fn (string $state, Set $set) => $set('slug', Str::slug($state))),
 
             Forms\Components\TextInput::make('slug')
                 ->required()
@@ -78,12 +83,14 @@ class FactoryBlueprintResource extends Resource
                 Tables\Columns\TextColumn::make('sourceProduct.name')->label('Origem')->sortable(),
                 Tables\Columns\TextColumn::make('updated_at')->label('Atualizado')->dateTime('d/m/Y H:i')->sortable(),
             ])
-            ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
+            ->recordActions([
+                EditAction::make(),
+                DeleteAction::make(),
             ])
-            ->bulkActions([
-                Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
             ]);
     }
 
