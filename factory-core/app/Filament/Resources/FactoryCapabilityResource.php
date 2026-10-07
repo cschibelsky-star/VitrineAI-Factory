@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources;
 
+use BackedEnum;
+use UnitEnum;
 use App\Filament\Resources\FactoryCapabilityResource\Pages;
 use App\Models\FactoryCapability;
 use Filament\Forms;
@@ -20,9 +22,9 @@ class FactoryCapabilityResource extends Resource
 {
     protected static ?string $model = FactoryCapability::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-puzzle-piece';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-puzzle-piece';
 
-    protected static ?string $navigationGroup = 'Vitrine IA Factory';
+    protected static string|UnitEnum|null $navigationGroup = 'Vitrine IA Factory';
 
     protected static ?string $navigationLabel = 'Capabilities';
 
