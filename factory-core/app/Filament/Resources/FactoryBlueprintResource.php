@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources;
 
+use BackedEnum;
+use UnitEnum;
 use App\Filament\Resources\FactoryBlueprintResource\Pages;
 use App\Models\FactoryBlueprint;
 use Filament\Forms;
@@ -20,9 +22,9 @@ class FactoryBlueprintResource extends Resource
 {
     protected static ?string $model = FactoryBlueprint::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-map';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map';
 
-    protected static ?string $navigationGroup = 'Vitrine IA Factory';
+    protected static string|UnitEnum|null $navigationGroup = 'Vitrine IA Factory';
 
     protected static ?string $navigationLabel = 'Blueprints';
 
