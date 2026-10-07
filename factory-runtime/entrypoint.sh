@@ -11,13 +11,25 @@ fi
 : "${APP_DEBUG:=true}"
 : "${APP_URL:=http://localhost:8080}"
 : "${DB_CONNECTION:=sqlite}"
-: "${DB_DATABASE:=/app/database/database.sqlite}"
+: "${DB_DATABASE:=/app/storage/app/factory.sqlite}"
 
-export APP_ENV APP_DEBUG APP_URL DB_CONNECTION DB_DATABASE
+if [ -z "${APP_KEY:-}" ]; then
+  key_file="/app/storage/app/factory-app-key"
 
-touch /app/database/database.sqlite
+  if [ -s "$key_file" ]; then
+    APP_KEY="$(cat "$key_file")"
+  else
+    umask 077
+    APP_KEY="$(php -r 'echo "base64:".base64_encode(random_bytes(32));')"
+    printf '%s' "$APP_KEY" > "$key_file"
+  fi
+fi
 
-php artisan key:generate --force --no-interaction
+export APP_ENV APP_DEBUG APP_URL APP_KEY DB_CONNECTION DB_DATABASE
+
+mkdir -p "$(dirname "$DB_DATABASE")"
+touch "$DB_DATABASE"
+
 php artisan migrate --force --no-interaction
 php artisan db:seed --force --no-interaction
 php artisan optimize:clear
