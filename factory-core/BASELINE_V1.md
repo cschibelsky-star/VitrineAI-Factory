@@ -69,3 +69,8 @@ A baseline só poderá substituir qualquer instalação anterior quando:
 ## Descarte
 
 Itens históricos podem ser retirados do runtime, menus e deploys imediatamente após sua substituição comprovada. Exclusão física do Git/repositório só ocorrerá depois da homologação da baseline e auditoria das dependências de VPS/banco/releases.
+
+
+## Gate de CI
+
+A baseline canônica deve passar pelo workflow `Factory Baseline CI` antes de qualquer decisão de merge. O gate valida o compose, constrói a imagem isolada da Factory, sobe o runtime efêmero, aguarda health, executa smoke do Laravel e verifica sintaxe PHP do core.
