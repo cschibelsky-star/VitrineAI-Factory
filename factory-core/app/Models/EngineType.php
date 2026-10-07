@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\FactoryEngineTypeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,6 +22,11 @@ class EngineType extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    protected static function newFactory(): FactoryEngineTypeFactory
+    {
+        return FactoryEngineTypeFactory::new();
+    }
 
     public function engines(): HasMany
     {
