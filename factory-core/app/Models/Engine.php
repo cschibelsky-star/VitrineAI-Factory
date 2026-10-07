@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\FactoryEngineFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,6 +38,11 @@ class Engine extends Model
         'is_core' => 'boolean',
         'is_active' => 'boolean',
     ];
+
+    protected static function newFactory(): FactoryEngineFactory
+    {
+        return FactoryEngineFactory::new();
+    }
 
     public function engineType(): BelongsTo
     {
