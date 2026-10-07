@@ -21,9 +21,9 @@ class EngineResource extends Resource
 
     protected static ?string $navigationLabel = 'Engines';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->components([
             Forms\Components\Select::make('engine_type_id')
                 ->label('Tipo')
                 ->relationship('engineType', 'name')
