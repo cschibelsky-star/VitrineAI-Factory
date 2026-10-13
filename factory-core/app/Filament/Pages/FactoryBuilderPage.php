@@ -2,22 +2,21 @@
 
 namespace App\Filament\Pages;
 
+use BackedEnum;
+use UnitEnum;
 use App\Models\FactoryBlueprint;
 use App\Services\FactoryMiniBuilder;
 use Filament\Forms;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 
-class FactoryBuilderPage extends Page implements HasForms
+class FactoryBuilderPage extends Page
 {
-    use InteractsWithForms;
-
-    protected static ?string $navigationIcon = 'heroicon-o-command-line';
-    protected static ?string $navigationGroup = 'Vitrine IA Factory';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-command-line';
+    protected static string|UnitEnum|null $navigationGroup = 'Vitrine IA Factory';
     protected static ?string $navigationLabel = 'Builder';
-    protected static string $view = 'filament.pages.factory-builder-page';
+    protected string $view = 'filament.pages.factory-builder-page';
 
     public ?array $data = [];
 
@@ -26,15 +25,15 @@ class FactoryBuilderPage extends Page implements HasForms
         $this->form->fill();
     }
 
-    protected function getFormSchema(): array
+    public function form(Schema $schema): Schema
     {
-        return [
+        return $schema->components([
             Forms\Components\TextInput::make('project_name')->label('Nome do Projeto')->required(),
             Forms\Components\Select::make('blueprint_id')->label('Blueprint')
                 ->options(fn () => FactoryBlueprint::query()->pluck('name', 'id')->toArray())
                 ->searchable(),
             Forms\Components\TagsInput::make('capabilities')->label('Capabilities'),
-        ];
+        ])->statePath('data');
     }
 
     public function generate(): void
