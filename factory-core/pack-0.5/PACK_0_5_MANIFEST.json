@@ -1,0 +1,27 @@
+{
+  "name": "Vitrine IA Factory Core Pack",
+  "version": "0.5.0",
+  "status": "consolidation",
+  "modules": [
+    "Engine Core",
+    "Blueprint Engine",
+    "Capability Engine",
+    "Mission Engine",
+    "Agent Engine",
+    "Dashboard inicial",
+    "Builder inicial"
+  ],
+  "seeders": [
+    "FactoryCoreSeeder",
+    "EngineCoreSeeder",
+    "BlueprintEngineSeeder",
+    "CapabilityEngineSeeder"
+  ],
+  "next_modules": [
+    "Mission Engine",
+    "Agent Engine",
+    "Dashboard Engine",
+    "GitHub Engine"
+  ],
+  "target": "HostGator Laravel + Filament executable build"
+}
