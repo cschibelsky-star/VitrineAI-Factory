@@ -167,6 +167,10 @@ class FactoryBaselineIntegrationTest extends TestCase
         Filament::setCurrentPanel($panel);
         Filament::bootCurrentPanel();
         $this->actingAs(User::factory()->create());
+        $dashboardUrl = FactoryDashboard::getUrl(panel: 'admin');
+        $route = app('router')->getRoutes()->match(\Illuminate\Http\Request::create($dashboardUrl));
+        $this->assertStringContainsString(FactoryDashboard::class, $route->getActionName());
+        $this->get($dashboardUrl)->assertSuccessful();
         Livewire::test(FactoryDashboard::class)->assertSuccessful();
         Livewire::test(FactoryBuilderPage::class)
             ->fillForm(['project_name' => 'CI UI Build', 'blueprint_id' => FactoryBlueprint::first()->id, 'capabilities' => ['CMS']])

@@ -67,7 +67,7 @@ jobs:
       - name: Application tests on isolated SQLite memory database
         run: |
           docker cp factory-runtime/phpunit.ci.xml vitrine_factory_hml:/app/phpunit.xml
-          docker exec vitrine_factory_hml php artisan test --log-junit=/tmp/factory-junit.xml
+          docker exec -e APP_ENV=testing -e APP_KEY=01234567890123456789012345678901 -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_FOREIGN_KEYS=true -e CACHE_STORE=array -e SESSION_DRIVER=array -e QUEUE_CONNECTION=sync -e MAIL_MAILER=array vitrine_factory_hml php artisan test --log-junit=/tmp/factory-junit.xml
           docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
 
       - name: Verify persistence after restart

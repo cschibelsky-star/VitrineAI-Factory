@@ -10,6 +10,8 @@ use Filament\Pages\Dashboard;
 
 class FactoryDashboard extends Dashboard
 {
+    protected static string $routePath = '/factory-dashboard';
+
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar-square';
     protected static string|UnitEnum|null $navigationGroup = 'Vitrine IA Factory';
     protected static ?string $navigationLabel = 'Dashboard Factory';
