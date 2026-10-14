@@ -166,7 +166,8 @@ class FactoryBaselineIntegrationTest extends TestCase
         $panel = Filament::getPanel('admin');
         Filament::setCurrentPanel($panel);
         Filament::bootCurrentPanel();
-        $this->actingAs(User::factory()->create());
+        $user = User::factory()->create();
+        $this->actingAs(FactoryPanelTestUser::findOrFail($user->id));
         $dashboardUrl = FactoryDashboard::getUrl(panel: 'admin');
         $route = app('router')->getRoutes()->match(\Illuminate\Http\Request::create($dashboardUrl));
         $this->assertStringContainsString(FactoryDashboard::class, $route->getActionName());
@@ -177,5 +178,16 @@ class FactoryBaselineIntegrationTest extends TestCase
             ->call('generate')
             ->assertHasNoFormErrors();
         Storage::disk('local')->assertExists('factory-builds/ci-ui-build/README.md');
+    }
+}
+
+// Explicit panel permission for the test identity; runtime authorization is unchanged.
+class FactoryPanelTestUser extends User implements \Filament\Models\Contracts\FilamentUser
+{
+    protected $table = 'users';
+
+    public function canAccessPanel(\Filament\Panel $panel): bool
+    {
+        return $panel->getId() === 'admin';
     }
 }
