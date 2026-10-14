@@ -22,7 +22,7 @@ jobs:
   baseline-smoke:
     name: Baseline Docker + Laravel smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -43,21 +43,7 @@ jobs:
 
       - name: Wait for health
         shell: bash
-        run: |
-          set -euo pipefail
-          for i in {1..60}; do
-            status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' vitrine_factory_hml 2>/dev/null || true)"
-            if [ "$status" = "healthy" ]; then
-              exit 0
-            fi
-            if [ "$status" = "unhealthy" ] || [ "$status" = "exited" ]; then
-              docker compose -f docker-compose.factory.yml logs --no-color factory
-              exit 1
-            fi
-            sleep 5
-          done
-          docker compose -f docker-compose.factory.yml logs --no-color factory
-          exit 1
+        run: bash factory-runtime/ci-wait-health.sh
 
       - name: Laravel smoke
         run: |
@@ -65,11 +51,58 @@ jobs:
           docker exec vitrine_factory_hml php artisan route:list
           curl --fail --silent --show-error http://127.0.0.1:8080/admin >/dev/null
 
+      - name: Prepare persistence marker
+        run: |
+          docker cp factory-runtime/ci-persistence.php vitrine_factory_hml:/tmp/ci-persistence.php
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php prepare
+
+      - name: Application tests on isolated SQLite memory database
+        run: |
+          docker cp factory-runtime/phpunit.ci.xml vitrine_factory_hml:/tmp/phpunit.ci.xml
+          docker exec vitrine_factory_hml php artisan test --configuration=/tmp/phpunit.ci.xml --log-junit=/tmp/factory-junit.xml
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
+
+      - name: Verify persistence after restart
+        run: |
+          docker compose -f docker-compose.factory.yml restart factory
+          bash factory-runtime/ci-wait-health.sh
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
+
+      - name: Verify persistence after container recreation
+        env:
+          FACTORY_ADMIN_NAME: CI Factory Admin
+          FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
+          FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
+        run: |
+          mkdir -p ci-results
+          docker cp vitrine_factory_hml:/tmp/factory-junit.xml ci-results/factory-junit.xml
+          docker compose -f docker-compose.factory.yml up -d --force-recreate factory
+          bash factory-runtime/ci-wait-health.sh
+          docker cp factory-runtime/ci-persistence.php vitrine_factory_hml:/tmp/ci-persistence.php
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
+          curl --fail --silent --show-error http://127.0.0.1:8080/admin >/dev/null
+
       - name: Factory core PHP syntax
         shell: bash
         run: |
           set -euo pipefail
           docker exec vitrine_factory_hml sh -lc 'find /app/app /app/database -type f -name "*.php" -print0 | xargs -0 -n1 php -l'
+
+      - name: Collect test report
+        if: always()
+        run: |
+          mkdir -p ci-results
+          if [ ! -f ci-results/factory-junit.xml ]; then
+            docker cp vitrine_factory_hml:/tmp/factory-junit.xml ci-results/factory-junit.xml || true
+          fi
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: factory-application-tests
+          path: ci-results/
+          if-no-files-found: warn
 
       - name: Logs on failure
         if: failure()
