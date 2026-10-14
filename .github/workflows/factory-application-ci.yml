@@ -1,0 +1,121 @@
+name: Factory Application CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "factory-core/**"
+      - "factory-runtime/**"
+      - "docker-compose.factory.yml"
+      - ".github/workflows/factory-application-ci.yml"
+  push:
+    branches:
+      - consolidation/factory-baseline-v1
+    paths:
+      - "factory-core/**"
+      - "factory-runtime/**"
+      - "docker-compose.factory.yml"
+      - ".github/workflows/factory-application-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-application-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  baseline-smoke:
+    name: Canonical application + persistence
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate compose
+        run: docker compose -f docker-compose.factory.yml config
+
+      - name: Build Factory HML image
+        run: docker compose -f docker-compose.factory.yml build --pull factory
+
+      - name: Start isolated Factory
+        env:
+          FACTORY_ADMIN_NAME: CI Factory Admin
+          FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
+          FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
+        run: docker compose -f docker-compose.factory.yml up -d factory
+
+      - name: Wait for health
+        shell: bash
+        run: bash factory-runtime/ci-wait-health.sh
+
+      - name: Laravel smoke
+        run: |
+          docker exec vitrine_factory_hml php artisan about --only=environment
+          docker exec vitrine_factory_hml php artisan route:list
+          curl --fail --silent --show-error http://127.0.0.1:8080/admin >/dev/null
+
+      - name: Prepare persistence marker
+        run: |
+          docker cp factory-runtime/ci-persistence.php vitrine_factory_hml:/tmp/ci-persistence.php
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php prepare
+
+      - name: Application tests on isolated SQLite memory database
+        run: |
+          docker cp factory-runtime/phpunit.ci.xml vitrine_factory_hml:/app/phpunit.xml
+          docker exec -e APP_ENV=testing -e APP_KEY=01234567890123456789012345678901 -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: -e DB_FOREIGN_KEYS=true -e CACHE_STORE=array -e SESSION_DRIVER=array -e QUEUE_CONNECTION=sync -e MAIL_MAILER=array vitrine_factory_hml php artisan test --log-junit=/tmp/factory-junit.xml
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
+
+      - name: Verify persistence after restart
+        run: |
+          docker compose -f docker-compose.factory.yml restart factory
+          bash factory-runtime/ci-wait-health.sh
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
+
+      - name: Verify persistence after container recreation
+        env:
+          FACTORY_ADMIN_NAME: CI Factory Admin
+          FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
+          FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
+        run: |
+          mkdir -p ci-results
+          docker cp vitrine_factory_hml:/tmp/factory-junit.xml ci-results/factory-junit.xml
+          docker compose -f docker-compose.factory.yml up -d --force-recreate factory
+          bash factory-runtime/ci-wait-health.sh
+          docker cp factory-runtime/ci-persistence.php vitrine_factory_hml:/tmp/ci-persistence.php
+          docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
+          curl --fail --silent --show-error http://127.0.0.1:8080/admin >/dev/null
+
+      - name: Factory core PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec vitrine_factory_hml sh -lc 'find /app/app /app/database -type f -name "*.php" -print0 | xargs -0 -n1 php -l'
+
+      - name: Collect test report
+        if: always()
+        run: |
+          mkdir -p ci-results
+          if [ ! -f ci-results/factory-junit.xml ]; then
+            docker cp vitrine_factory_hml:/tmp/factory-junit.xml ci-results/factory-junit.xml || true
+          fi
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: factory-application-tests
+          path: ci-results/
+          if-no-files-found: warn
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.factory.yml logs --no-color factory
+
+      - name: Cleanup
+        if: always()
+        run: docker compose -f docker-compose.factory.yml down -v --remove-orphans
