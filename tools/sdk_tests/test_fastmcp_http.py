@@ -46,7 +46,7 @@ class SDKHTTPTests(unittest.IsolatedAsyncioTestCase):
                         return await client.post('/factory/assets/upload', params={'project':project,'branch':'asset-review'}, headers=headers, content=body)
                     for invalid in [None, 'invalid', token(expires_in_seconds=-60)]:
                         self.assertEqual((await upload(invalid)).status_code, 401)
-                    for denied in [token(subject='other'), token(scopes=['read'])]:
+                    for denied in [token(subject='other'), token(scopes=['read']), token(scopes=[])]:
                         self.assertEqual((await upload(denied)).status_code, 403)
                     self.assertEqual((await upload(token(), project='other')).status_code, 403)
                     self.assertEqual((await upload(token(), checksum='0'*64)).status_code, 400)
