@@ -28,6 +28,8 @@ def ingest(source, checkout, destination, expected_sha256, *, allow_overwrite=Fa
     parent = target.parent
     if any((root.joinpath(*rel.parts[:i])).is_symlink() for i in range(1, len(rel.parts) + 1)):
         raise ValueError("symlink destination")
+    if target.is_symlink():
+        raise ValueError("symlink destination")
     if target.exists() and not allow_overwrite:
         raise FileExistsError("destination exists")
     if not str(parent.resolve()).startswith(str(root) + os.sep):
