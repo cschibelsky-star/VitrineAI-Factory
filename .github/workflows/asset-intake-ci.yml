@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - "tools/asset_ingest.py"
+      - "tools/asset_manifest_verify.py"
       - "tools/tests/test_asset_ingest.py"
+      - "tools/tests/test_asset_manifest_verify.py"
       - ".github/workflows/asset-intake-ci.yml"
   workflow_dispatch:
 permissions:
@@ -14,6 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Python syntax
-        run: python -m py_compile tools/asset_ingest.py
+        run: python -m py_compile tools/asset_ingest.py tools/asset_manifest_verify.py
       - name: Safe import tests
-        run: python -m unittest discover -s tools/tests -p 'test_asset_ingest.py' -v
+        run: python -m unittest discover -s tools/tests -p 'test_*.py' -v
