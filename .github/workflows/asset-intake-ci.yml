@@ -2,6 +2,8 @@ name: Factory Asset Intake CI
 on:
   pull_request:
     paths:
+      - "docker-compose.asset-validation.yml"
+      - "tools/validation/**"
       - "tools/asset_ingest.py"
       - "tools/asset_job.py"
       - "tools/asset_intake.py"
@@ -42,3 +44,13 @@ jobs:
         run: python -m pip install 'fastmcp==2.10.6' 'mcp==1.12.4' 'pydantic==2.11.7' 'pydantic-settings==2.10.1' 'starlette==0.47.2' 'sse-starlette==2.4.1'
       - name: Real HTTP authentication and binary intake
         run: python -m unittest discover -s tools/sdk_tests -p 'test_*.py' -v
+  isolated-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolated runner configuration
+        run: docker compose -f docker-compose.asset-validation.yml config --quiet
+      - name: Build disposable test image
+        run: docker compose -f docker-compose.asset-validation.yml build asset-validation
+      - name: Run without network, privileges or host mounts
+        run: docker compose -f docker-compose.asset-validation.yml run --rm asset-validation
