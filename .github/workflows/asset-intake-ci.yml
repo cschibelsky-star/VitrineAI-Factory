@@ -1,0 +1,19 @@
+name: Factory Asset Intake CI
+on:
+  pull_request:
+    paths:
+      - "tools/asset_ingest.py"
+      - "tools/tests/test_asset_ingest.py"
+      - ".github/workflows/asset-intake-ci.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  asset-intake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python syntax
+        run: python -m py_compile tools/asset_ingest.py
+      - name: Safe import tests
+        run: python -m unittest discover -s tools/tests -p 'test_asset_ingest.py' -v
