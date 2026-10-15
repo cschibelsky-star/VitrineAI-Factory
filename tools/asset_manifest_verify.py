@@ -20,7 +20,7 @@ def verify(root, manifest):
         if rel.is_absolute() or ".." in rel.parts or not rel.parts:
             raise ValueError("invalid asset path")
         target = root / rel
-        if target.is_symlink() or not target.is_file() or not target.resolve().is_relative_to(root):
+        if any(root.joinpath(*rel.parts[:i]).is_symlink() for i in range(1, len(rel.parts) + 1)) or any(p.lower() == ".git" for p in rel.parts) or not target.is_file() or not target.resolve().is_relative_to(root):
             raise ValueError("asset missing or unsafe")
         digest = hashlib.sha256()
         with target.open("rb") as stream:
@@ -37,3 +37,4 @@ if __name__ == "__main__":
     parser.add_argument("--manifest", required=True)
     args = parser.parse_args()
     print(json.dumps(verify(args.root, args.manifest), indent=2))
+

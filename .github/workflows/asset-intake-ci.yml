@@ -4,6 +4,10 @@ on:
     paths:
       - "tools/asset_ingest.py"
       - "tools/asset_job.py"
+      - "tools/asset_intake.py"
+      - "tools/asset_reference_store.py"
+      - "tools/tests/test_asset_reference_store.py"
+      - "tools/tests/test_asset_intake.py"
       - "tools/asset_manifest_verify.py"
       - "tools/tests/test_asset_ingest.py"
       - "tools/tests/test_asset_manifest_verify.py"
@@ -17,6 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Python syntax
-        run: python -m py_compile tools/asset_ingest.py tools/asset_manifest_verify.py tools/asset_job.py
+        run: python -m py_compile tools/asset_ingest.py tools/asset_manifest_verify.py tools/asset_job.py tools/asset_intake.py tools/asset_reference_store.py
       - name: Safe import tests
         run: python -m unittest discover -s tools/tests -p 'test_*.py' -v
+

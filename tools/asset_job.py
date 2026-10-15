@@ -17,6 +17,10 @@ def run(job_path):
     if job_file.is_symlink() or not job_file.is_file():
         raise ValueError("job must be a regular file")
     job = json.loads(job_file.read_text(encoding="utf-8"))
+    return run_materialized(job)
+
+def run_materialized(job):
+    """Internal bridge for a job already resolved by the authenticated adapter."""
     if not isinstance(job, dict) or set(job) != REQUIRED:
         raise ValueError("invalid job schema")
     if not all(isinstance(job[key], str) and job[key] for key in REQUIRED):
@@ -29,3 +33,4 @@ if __name__ == "__main__":
     parser.add_argument("--job", required=True)
     args = parser.parse_args()
     print(json.dumps(run(args.job), ensure_ascii=False))
+
