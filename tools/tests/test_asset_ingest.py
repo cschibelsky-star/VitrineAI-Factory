@@ -52,6 +52,15 @@ class AssetIngestTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             module.ingest(self.source, self.root, "assets/image.png", self.sha)
 
+    def test_symlink_target_with_overwrite_denied(self):
+        outside = Path(self.tmp.name) / "outside.png"
+        outside.write_bytes(b"keep")
+        (self.root / "assets").mkdir()
+        (self.root / "assets" / "image.png").symlink_to(outside)
+        with self.assertRaises(ValueError):
+            module.ingest(self.source, self.root, "assets/image.png", self.sha, allow_overwrite=True)
+        self.assertEqual(outside.read_bytes(), b"keep")
+
     def test_missing_git_root(self):
         with self.assertRaises(ValueError):
             module.ingest(self.source, Path(self.tmp.name), "image.png", self.sha)
