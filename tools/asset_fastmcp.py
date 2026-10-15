@@ -22,7 +22,8 @@ def request_principal():
 def verified_token_principal(token):
     if token is None:
         raise PermissionError('authenticated request required')
-    if ASSET_SCOPE not in token.scopes:
+    scopes = getattr(token, 'scopes', None)
+    if not isinstance(scopes, (list, tuple, set, frozenset)) or ASSET_SCOPE not in scopes:
         raise PermissionError('asset scope required')
     if token.expires_at is None or token.expires_at <= time.time():
         raise PermissionError('finite valid token lifetime required')
