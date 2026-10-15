@@ -158,3 +158,55 @@ canônico do host MCP e seu handler de arquivos; depois revisar a integração e
 instalação isolada, sem merge/deploy implícito. A auditoria genérica de capacidades
 do Super retorna suporte a Docker/arquivos/Git, mas isso não comprova uma capacidade
 de upload binário nem um binding autenticado de arquivos.
+
+## Host operacional localizado e binding FastMCP — terceira etapa
+
+A descoberta pelo registry V5 localizou o host Python no repositório
+`cschibelsky-star/Vitrine-IA-Pro-VPS`, arquivos `connector-v5/main.py` e
+`connector-v5/main_ext.py`. A arquitetura informada é `standalone-fastmcp`;
+requirements: `fastmcp>=2.10,<3`. O checkout canônico consultado em 15/10/2026
+está na branch `fix/hml-provider-assessor-20261014` (GitHub: commit
+`806d2d1301928df36af966bce02ef20adea09454`), diferente da branch declarada no
+manifesto. Seu estado foi preservado. Isso substitui a pendência genérica de
+"localizar o host"; ainda falta conectar o handler autenticado do provedor de arquivos.
+
+O código FastMCP auditado cria `FastMCP(name)` sem `auth=...`. Isso não comprova
+que o endpoint externo está aberto — pode haver autenticação no proxy — mas
+não fornece ao adaptador um principal verificado pelo SDK. Não inferir identidade
+de headers, IP, nome de conta ou presença de token.
+
+`tools/asset_fastmcp.py::bind_existing_host` agora conecta os serviços ao host
+FastMCP e **recusa o registro se `server.auth` estiver ausente**. A identidade de
+cada chamada vem de `fastmcp.server.dependencies.get_access_token`, nunca dos
+argumentos MCP. Exige escopo `factory:assets:write`, client_id verificado e
+expiração finita futura. A política de grants deve usar esse mesmo client_id,
+considerando que ele pode identificar um cliente OAuth, não necessariamente uma
+pessoa. Provider deve validar assinatura, issuer e audience antes de criar contexto.
+
+```python
+from asset_fastmcp import bind_existing_host, request_principal
+
+# O servidor existente já precisa ter provider autenticado homologado.
+runtime, tool = bind_existing_host(existing_mcp_server,
+    state_root=private_state_directory, policies=authorized_grants)
+# Handler interno do provedor, na própria requisição autenticada:
+receipt = runtime.accept_upload(request_principal(), project=authorized_project,
+    branch=authorized_work_branch, stream=original_binary_stream,
+    sha256=original_sha256)
+```
+
+O binding não configura ou substitui o provider, nem altera proxy, secrets ou
+listeners. É intencional bloquear a ativação no host auditado até homologar o
+contexto de identidade e o handler do provedor real. Nenhum patch foi instalado
+no V5 compartilhado ou em sua branch de trabalho.
+
+Validação local: **41 testes aprovados**, incluindo recusa de host sem auth e
+negação de token ausente, sem escopo, expirado ou sem identidade. A instalação
+do SDK no ambiente local não estava disponível no índice acessível. Por isso,
+foi criado job CI separado `authenticated-mcp` com FastMCP 2.10.6 e ASGI HTTP
+real, verificador JWT com chaves efêmeras de teste, tokens inválidos/expirados,
+escopo insuficiente, principal sem grant e ingestão autorizada. Confirmar o
+resultado desse job no commit exato; não confundir testes unitários com SDK real.
+
+Referência primária da API auditada:
+https://github.com/PrefectHQ/fastmcp/blob/v2.10.6/src/fastmcp/server/dependencies.py
