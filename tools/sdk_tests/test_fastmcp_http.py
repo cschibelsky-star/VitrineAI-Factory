@@ -33,7 +33,7 @@ class SDKHTTPTests(unittest.IsolatedAsyncioTestCase):
             args = dict(file_reference=uploaded['file_reference'], project='project-a', branch='asset-review', destination='public/assets/logo.png', sha256=sha)
             app = server.http_app(path='/mcp', json_response=True, stateless_http=True)
             async with app.router.lifespan_context(app):
-                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test', follow_redirects=True) as client:
                     async def call(token):
                         headers = {'Accept':'application/json, text/event-stream'}
                         if token: headers['Authorization'] = 'Bearer ' + token
