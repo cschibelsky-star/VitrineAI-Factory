@@ -13,6 +13,7 @@ on:
       - "tools/tests/test_asset_runtime.py"
       - "tools/tests/test_asset_reference_store.py"
       - "tools/tests/test_asset_intake.py"
+      - "tools/tests/test_asset_job.py"
       - "tools/asset_manifest_verify.py"
       - "tools/tests/test_asset_ingest.py"
       - "tools/tests/test_asset_manifest_verify.py"
