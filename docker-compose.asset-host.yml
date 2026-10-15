@@ -4,8 +4,8 @@ services:
   asset-host:
     build:
       context: .
-      dockerfile: tools/validation/Dockerfile
-    command: ["sh", "-c", "PYTHONPATH=/validation/tools python -m uvicorn asset_host:make_app --factory --host 0.0.0.0 --port 8080"]
+      dockerfile: tools/validation/AssetHost.Dockerfile
+    command: ["uvicorn", "asset_host:make_app", "--factory", "--host", "0.0.0.0", "--port", "8080"]
     restart: unless-stopped
     read_only: true
     cap_drop:
