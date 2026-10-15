@@ -104,3 +104,57 @@ autenticado de uploads nem instalação deste adaptador. Não foi realizado depl
 - Pelo gate HML de cada projeto, servir o arquivo, validar HTTP 200 e SHA dos bytes,
   registrar URL/commit/manifesto, screenshots e comparação visual ao layout aprovado.
 - Registrar no Cockpit e obter homologação; somente então avaliar merge/deploy.
+
+## Serviços concretos de runtime — segunda etapa de 15/10/2026
+
+`tools/asset_runtime.py::PrivateRuntime` implementa os serviços que antes eram
+somente callbacks: catálogo SQLite privado com ACL/TTL e hashes, importação interna
+de stream original, quota diária persistente por principal, lock `flock` por
+checkout entre processos, auditoria SQLite com `synchronous=FULL` e registro na
+instância MCP existente. Não cria listener, token, autenticação paralela ou serviço
+Docker. O host ainda deve fornecer identidade verificada e políticas canônicas.
+
+Integração mínima no host existente, sem argumentos públicos de credencial/caminho:
+
+```python
+from asset_runtime import PrivateRuntime
+
+runtime = PrivateRuntime(private_state_directory, authorized_grants,
+                         principal=verified_principal_from_context)
+runtime.register(existing_mcp_server, verified_request_context)
+# No handler autenticado do provedor de arquivos, após validar a ACL no provedor:
+receipt = runtime.accept_upload(verified_context, project=authorized_project,
+    branch=authorized_work_branch, stream=original_binary_stream,
+    sha256=original_sha256)
+# A chamada MCP subsequente usa apenas receipt['file_reference'].
+```
+
+O diretório de estado precisa ser privado (0700), fora dos checkouts e de qualquer
+raiz pública; os arquivos usam 0600. Políticas `Grant` vêm do servidor e não do
+modelo. `accept_upload` é um método interno, não uma ferramenta MCP; o provedor
+real deve enviar o stream original com identidade e checksum verificados.
+
+A quota cobra conservadoramente a reserva máxima por tentativa, tanto no upload
+como na ingestão; falhas também contam. O dia é UTC, o padrão é 100 MiB por
+principal e o limite por arquivo segue o grant, até 25 MiB. Limites podem ser
+reduzidos pelo host. Dois uploads+ingestões de 25 MiB consomem os 100 MiB.
+O lock exige que todos os workers usem o mesmo diretório de estado em filesystem
+local com `flock` funcional; não foi validado para NFS ou múltiplos hosts.
+O serviço não remove originais expirados automaticamente: TTL bloqueia acesso,
+mas retenção e descarte continuam sujeitos à política de preservação aprovada.
+
+Validação ampliada: **39 testes aprovados**, incluindo upload interno → catálogo
+persistido → ferramenta registrada → ingestão em dois repositórios isolados,
+SHA do blob Git local, recibos persistidos após reinicialização, quota após
+reinicialização e bloqueio de um segundo processo concorrente. Estes testes
+não equivalem a sessões reais no host MCP de produção nem à HML dos projetos.
+
+Auditoria adicional: a branch `consolidation/factory-baseline-v1` contém runtime
+PHP 8.3/Laravel/Filament; a branch deste PR foi aberta a partir de `main` e não
+contém `factory-runtime`/compose. O inventário do repositório deste PR não contém
+host MCP autenticado. Não adicionar Python ao container PHP nem reconciliar essas
+branches por conveniência. O próximo gate exige identificar o repositório/serviço
+canônico do host MCP e seu handler de arquivos; depois revisar a integração e
+instalação isolada, sem merge/deploy implícito. A auditoria genérica de capacidades
+do Super retorna suporte a Docker/arquivos/Git, mas isso não comprova uma capacidade
+de upload binário nem um binding autenticado de arquivos.
