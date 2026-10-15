@@ -29,8 +29,7 @@ class SDKHTTPTests(unittest.IsolatedAsyncioTestCase):
             runtime, _ = bind_existing_host(server, state_root=root/'state', policies=(grant,))
             data = bytes.fromhex('89504e470d0a1a0a') + b'fixture'
             sha = hashlib.sha256(data).hexdigest()
-            uploaded = runtime.accept_upload(VerifiedPrincipal('owner'), project='project-a', branch='asset-review', stream=io.BytesIO(data), sha256=sha)
-            args = dict(file_reference=uploaded['file_reference'], project='project-a', branch='asset-review', destination='public/assets/logo.png', sha256=sha)
+            args = dict(file_reference='not-yet', project='project-a', branch='asset-review', destination='public/assets/logo.png', sha256=sha)
             app = server.http_app(path='/mcp', json_response=True, stateless_http=True)
             async with app.router.lifespan_context(app):
                 async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test', follow_redirects=True) as client:
@@ -41,6 +40,27 @@ class SDKHTTPTests(unittest.IsolatedAsyncioTestCase):
                     def token(subject='owner', scopes=None, **overrides):
                         return key.create_token(subject=subject, issuer=issuer, audience=audience,
                             scopes=scopes if scopes is not None else ['factory:assets:write'], **overrides)
+                    async def upload(auth_token, *, body=data, checksum=sha, project='project-a'):
+                        headers = {'Content-Type':'application/octet-stream', 'X-Asset-SHA256':checksum}
+                        if auth_token: headers['Authorization'] = 'Bearer ' + auth_token
+                        return await client.post('/factory/assets/upload', params={'project':project,'branch':'asset-review'}, headers=headers, content=body)
+                    for invalid in [None, 'invalid', token(expires_in_seconds=-60)]:
+                        self.assertEqual((await upload(invalid)).status_code, 401)
+                    for denied in [token(subject='other'), token(scopes=['read'])]:
+                        self.assertEqual((await upload(denied)).status_code, 403)
+                    self.assertEqual((await upload(token(), project='other')).status_code, 403)
+                    self.assertEqual((await upload(token(), checksum='0'*64)).status_code, 400)
+                    self.assertEqual((await upload(token(), body=b'x'*1025)).status_code, 413)
+                    async def chunks():
+                        yield b'x'*600
+                        yield b'x'*600
+                    self.assertEqual((await upload(token(), body=chunks())).status_code, 413)
+                    self.assertEqual(list((root/'state/intake').iterdir()), [])
+                    uploaded = await upload(token())
+                    self.assertEqual(uploaded.status_code, 201)
+                    args['file_reference'] = uploaded.json()['file_reference']
+                    self.assertEqual(uploaded.json()['sha256'], sha)
+                    self.assertEqual(uploaded.headers['cache-control'], 'no-store')
                     for invalid in [None, 'invalid', token(expires_in_seconds=-60)]:
                         response = await call(invalid)
                         self.assertIn(response.status_code, (401,403))

@@ -1,0 +1,45 @@
+{
+  "scope": "Original binary validation in two temporary repositories; does not satisfy real-project HML gate",
+  "assets": [
+    {
+      "project": "vitrine-original-isolated-test",
+      "source_library_file_id": "libfile_5552e459017481918230719695aec33a",
+      "source_filename": "Logo futurista VITRINE IA PRO em ciano.png",
+      "bytes": 2645828,
+      "dimensions": [
+        1672,
+        941
+      ],
+      "original_sha256": "89725689ea4ce72ab5a3a27449cd3cf6a7667d5a88ab4bfea8f599a910e7bba9",
+      "git_blob_sha256": "89725689ea4ce72ab5a3a27449cd3cf6a7667d5a88ab4bfea8f599a910e7bba9",
+      "http_sha256": "89725689ea4ce72ab5a3a27449cd3cf6a7667d5a88ab4bfea8f599a910e7bba9",
+      "http_status": 200,
+      "original_bytes_preserved": true,
+      "baseline_preserved_until_reviewed_commit": true,
+      "environment": "temporary local repository and loopback HTTP; not deployed HML",
+      "github_asset_published": false,
+      "hml_validated": false,
+      "visual_layout_approved": false
+    },
+    {
+      "project": "tvsumare-original-isolated-test",
+      "source_library_file_id": "libfile_633c3fe4e3e0819197005749b8cfb334",
+      "source_filename": "Estúdio Jornalístico TV Sumaré Futurista (1)(1).png",
+      "bytes": 3196799,
+      "dimensions": [
+        1672,
+        941
+      ],
+      "original_sha256": "691ac94cd878ad9bf6dde5e0e007da3264ddec42f55e02f6a52680c7edfe63dc",
+      "git_blob_sha256": "691ac94cd878ad9bf6dde5e0e007da3264ddec42f55e02f6a52680c7edfe63dc",
+      "http_sha256": "691ac94cd878ad9bf6dde5e0e007da3264ddec42f55e02f6a52680c7edfe63dc",
+      "http_status": 200,
+      "original_bytes_preserved": true,
+      "baseline_preserved_until_reviewed_commit": true,
+      "environment": "temporary local repository and loopback HTTP; not deployed HML",
+      "github_asset_published": false,
+      "hml_validated": false,
+      "visual_layout_approved": false
+    }
+  ]
+}

@@ -55,7 +55,7 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256(self.git(grant.checkout, 'show', 'HEAD:public/assets/logo.png')).hexdigest(), self.sha)
         with self.runtime.db() as db:
             events = [json.loads(row[0]) for row in db.execute('SELECT event FROM audit ORDER BY id')]
-        self.assertEqual([e['status'] for e in events], ['authorized', 'staged'] * 2)
+        self.assertEqual([e['status'] for e in events], ['received', 'authorized', 'staged'] * 2)
         self.assertEqual(list((self.base / 'state/intake').iterdir()), [])
         restarted = PrivateRuntime(self.base / 'state', self.grants, lambda ctx: 'owner')
         self.assertIsNotNone(restarted.lookup(upload['file_reference']))

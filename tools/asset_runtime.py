@@ -108,7 +108,7 @@ class PrivateRuntime:
                        (identity, day, used + amount))
 
     @contextmanager
-    def reserve(self, grant):
+    def lock_checkout(self, grant):
         key = hashlib.sha256(str(Path(grant.checkout).resolve()).encode()).hexdigest()
         fd = os.open(self.root / 'locks' / key, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         try:
@@ -116,10 +116,15 @@ class PrivateRuntime:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as exc:
                 raise PermissionError('checkout busy') from exc
-            self.charge(grant.principal, grant.max_bytes)
             yield
         finally:
             os.close(fd)
+
+    @contextmanager
+    def reserve(self, grant):
+        with self.lock_checkout(grant):
+            self.charge(grant.principal, grant.max_bytes)
+            yield
 
     def audit(self, event):
         # Fixed fields only; never persist a provider reference or raw bytes.
@@ -166,6 +171,9 @@ class PrivateRuntime:
             with self.db() as db:
                 db.execute('INSERT INTO files VALUES (?,?,?,?,?,?)',
                     (reference, reference, grant.principal, time.time() + ttl, digest.hexdigest(), total))
+                db.execute('INSERT INTO audit(created,event) VALUES (?,?)', (time.time(), json.dumps({
+                    'principal': grant.principal, 'project': project, 'branch': branch,
+                    'sha256': digest.hexdigest(), 'bytes': total, 'status': 'received'}, sort_keys=True)))
             return {'file_reference': reference, 'sha256': digest.hexdigest(), 'bytes': total}
         except BaseException:
             path.unlink(missing_ok=True)

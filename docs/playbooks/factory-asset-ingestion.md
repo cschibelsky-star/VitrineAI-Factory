@@ -210,3 +210,45 @@ resultado desse job no commit exato; não confundir testes unitários com SDK re
 
 Referência primária da API auditada:
 https://github.com/PrefectHQ/fastmcp/blob/v2.10.6/src/fastmcp/server/dependencies.py
+
+## Entrada binária HTTP no host existente — quarta etapa
+
+O binding agora registra `POST /factory/assets/upload?project=...&branch=...`
+no próprio servidor FastMCP existente. Não cria listener, proxy, container ou
+credencial. A rota customizada **não presume herdar o middleware MCP**: chama
+explicitamente `server.auth.verify_token` com o bearer recebido e só então
+obtém principal/escopo/validade. Headers de identidade não são usados.
+
+O corpo deve conter bytes originais com `Content-Type: application/octet-stream`
+e `X-Asset-SHA256`. O grant determina checkout, escopo e limite (até 25 MiB).
+O limite é aplicado ao Content-Length e durante o streaming, inclusive quando
+não há Content-Length. Tempo de transferência limitado a 30 s; lock não bloqueante
+por checkout cobre o spool privado. Arquivos parciais são removidos em erros;
+respostas não expõem paths, tokens ou erros internos. A resposta 201 contém
+somente referência opaca, SHA e tamanho e usa `Cache-Control: no-store`.
+
+Após o upload, a chamada MCP `factory_asset_receive` recebe essa referência e
+executa as verificações de branch/destino/árvore Git antes da ingestão.
+O upload registra `received` na mesma transação durável do catálogo. Expiração
+do token é verificada novamente ao concluir a transferência. A integração do
+provedor real deverá transmitir os bytes originais a essa rota autenticada;
+nenhuma URL externa será aceita como referência pela ferramenta MCP.
+
+### Teste com arquivos originais recebidos
+
+Foram recuperados dois PNGs originais já fornecidos (logo e estúdio TV Sumaré),
+com identidade e versão de origem preservadas. O teste interno utilizou os
+bytes reais, sem reconstrução ou transcodificação: catálogo → ingestão → Git
+local → HTTP 200 em dois repositórios temporários. SHA coincidiu em todas as
+etapas. Evidência em `asset-intake-original-evidence-20261015.json`.
+
+Esse ensaio não publica os PNGs no GitHub, não aprova identidade visual nem
+substitui a HML dos projetos. Os arquivos binários não foram duplicados neste
+repositório. O CI HTTP passou a usar o endpoint de upload, verificando ausência
+ou invalidade de autenticação, escopo/projeto negados, checksum divergente,
+Content-Length excessivo, stream excessivo sem Content-Length, cleanup e a
+sequência upload autenticado → referência → ingestão MCP autorizada.
+
+A ativação remota segue pendente do gate do host: provider autenticado, rota
+restrita e transferência autorizada do provedor. Código e testes podem avançar
+sem instalar uma rota não autenticada no V5 compartilhado.
