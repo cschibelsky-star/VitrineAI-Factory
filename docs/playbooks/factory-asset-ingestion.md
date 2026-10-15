@@ -252,3 +252,48 @@ sequência upload autenticado → referência → ingestão MCP autorizada.
 A ativação remota segue pendente do gate do host: provider autenticado, rota
 restrita e transferência autorizada do provedor. Código e testes podem avançar
 sem instalar uma rota não autenticada no V5 compartilhado.
+
+## Workspace VPS e bloqueio de execução confirmado — quinta etapa
+
+Workspace isolado criado pelos conectores Super/V5:
+`factory-asset-intake-validation-20261015`, raiz
+`/srv/projects/factory-asset-intake-validation-20261015`, checkout `repository`,
+branch `feat/factory-asset-ingestion-20261014`. Clone confirmado; atualização
+fast-forward até `b3087f880096fb81b8758987aafe409e96683f69`, árvore preservada.
+Manifestações Super e V5 criadas para o mesmo workspace (registros dos conectores,
+sem duplicar código ou runtime). Config Compose validada com exit_code=0.
+
+Runner `docker-compose.asset-validation.yml`/`tools/validation/Dockerfile`:
+usuário 65534, filesystem read-only, tmpfs de 128 MiB, network_mode none,
+capabilities removidas, no-new-privileges, sem portas/volumes/credenciais,
+limites de CPU/memória/processos e restart desativado. Executa suítes Python e
+SDK HTTP, não inicia endpoint operacional.
+
+Build amplo recusado com `broad_compose_mutation_disabled`; rota específica
+indicada pelo conector recusou `asset-validation` com
+`controlled_service_not_allowed`. Nenhum build ou container foi iniciado na VPS.
+O catálogo genérico ainda retorna fully_supported=true, portanto ele não é
+prova de autorização desse serviço. Nenhuma alteração foi feita na política
+de segurança, e serviços já autorizados não foram usados como alias.
+
+A política existente fica em
+`Vitrine-IA-Pro-VPS/connector-v5/controlled_operations_patch.py`, tabela
+`CONTROLLED_COMPOSE_POLICY`. Para revisão pelo gate operacional, o escopo
+mínimo proposto (NÃO APLICADO) é:
+
+```python
+"factory-asset-intake-validation-20261015": {
+    "compose_files": {"docker-compose.asset-validation.yml"},
+    "services": {"asset-validation"},
+    "run_once": {"asset-validation"},
+    "build": {"asset-validation"},
+    "up": set(),
+},
+```
+
+Isso autoriza somente build e execução única do teste, sem liberação de serviço
+persistente. A mudança no conector compartilhado requer seu gate específico;
+não confundir autorização do projeto com uma liberação já instalada no conector.
+O CI `isolated-container` executa o mesmo runner num ambiente descartável do
+GitHub enquanto a execução na VPS permanece bloqueada. Conferir seu resultado
+no commit exato antes de declarar o runner validado.
