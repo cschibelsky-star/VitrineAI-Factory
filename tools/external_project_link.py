@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 
 PROJECT_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{1,79}$")
 BRANCH = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,150}$")
-REPO = re.compile(r"^(?:https://github\\.com/|git@github\\.com:)[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+(?:\\.git)?$")
+REPO = re.compile(r"^(?:https://github\.com/|git@github\.com:)[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+(?:\.git)?$")
 ALLOWED_KEYS = frozenset({"id", "repository", "branch", "hml_url", "operational_project_id", "workspace_root", "mode"})
 
 def validate(data):
