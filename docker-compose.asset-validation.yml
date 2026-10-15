@@ -1,0 +1,18 @@
+# Disposable validation only: no listener, host mount, secret or production access.
+services:
+  asset-validation:
+    build:
+      context: .
+      dockerfile: tools/validation/Dockerfile
+    restart: "no"
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    tmpfs:
+      - /tmp:size=128m,mode=1777
