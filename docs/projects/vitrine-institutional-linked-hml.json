@@ -1,0 +1,9 @@
+{
+  "id": "vitrine-institutional",
+  "repository": "git@github.com:cschibelsky-star/vitrine-ai-pro.git",
+  "branch": "design/vitrine-showcase-approved-20261014",
+  "hml_url": "https://site.hml.vitrineiapro.com.br/",
+  "operational_project_id": "vitrine-site-hml",
+  "workspace_root": "/srv/projects/vitrine-site-hml",
+  "mode": "linked_existing_read_only"
+}

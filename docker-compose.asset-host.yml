@@ -1,0 +1,38 @@
+# Dedicated isolated HML host, not the shared V5 connector.
+# No exposed ports or automatic provisioning; use an approved reverse proxy later.
+services:
+  asset-host:
+    build:
+      context: .
+      dockerfile: tools/validation/AssetHost.Dockerfile
+    command: ["uvicorn", "asset_host:make_app", "--factory", "--host", "0.0.0.0", "--port", "8080"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    expose:
+      - "8080"
+    environment:
+      ASSET_AUTH_PUBLIC_KEY_FILE: /run/asset-config/public.pem
+      ASSET_GRANTS_FILE: /run/asset-config/grants.json
+      ASSET_AUTH_ISSUER: ${ASSET_AUTH_ISSUER:?authentication issuer required}
+      ASSET_AUTH_AUDIENCE: ${ASSET_AUTH_AUDIENCE:?authentication audience required}
+      ASSET_STATE_DIR: /var/lib/asset-intake
+    volumes:
+      - type: bind
+        source: ${ASSET_CONFIG_DIR:?operator-managed auth directory required}
+        target: /run/asset-config
+        read_only: true
+      - type: bind
+        source: ${ASSET_PROJECT_DIR:?approved checkout directory required}
+        target: /workspace
+      - type: volume
+        source: asset-state
+        target: /var/lib/asset-intake
+volumes:
+  asset-state:
