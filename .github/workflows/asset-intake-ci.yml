@@ -58,6 +58,5 @@ jobs:
         run: docker build -f tools/validation/AssetHost.Dockerfile -t factory-asset-host-ci:latest .
       - name: Verify non-root private state directory
         run: |
-          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges \\
-            --entrypoint python factory-asset-host-ci:latest -c 'import os, pathlib; p=pathlib.Path("/var/lib/asset-intake"); s=p.stat(); assert s.st_uid == os.geteuid() == 65534; assert s.st_mode & 0o077 == 0; print("private state ownership: PASS")'
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges --entrypoint python factory-asset-host-ci:latest -c 'import os, pathlib; p=pathlib.Path("/var/lib/asset-intake"); s=p.stat(); assert s.st_uid == os.geteuid() == 65534; assert s.st_mode & 0o077 == 0; print("private state ownership: PASS")'
 
