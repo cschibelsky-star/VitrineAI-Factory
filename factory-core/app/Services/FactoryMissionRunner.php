@@ -29,36 +29,25 @@ class FactoryMissionRunner
 
     public function run(FactoryMission $mission): FactoryMission
     {
-        $mission->update(['status' => 'running', 'started_at' => now()]);
+        // Fail closed: assigning an agent or recording a log is not proof of execution.
+        // The canonical mission executor and independent QA gate are not integrated yet.
+        // Do not start, complete or overwrite existing successful steps until those
+        // contracts are implemented and tested end to end.
+        $mission->update([
+            'status' => 'blocked',
+            'result' => [
+                'ok' => false,
+                'reason' => 'executor_and_independent_qa_not_integrated',
+                'message' => 'Missao bloqueada: execucao real e evidencia de QA independente obrigatorias.',
+            ],
+            'finished_at' => null,
+        ]);
 
         FactoryMissionLog::create([
             'mission_id' => $mission->id,
-            'level' => 'info',
-            'message' => 'Missão iniciada pela Vitrine IA Factory.',
-        ]);
-
-        foreach ($mission->steps()->orderBy('order_column')->get() as $step) {
-            $step->update(['status' => 'running', 'started_at' => now()]);
-
-            FactoryMissionLog::create([
-                'mission_id' => $mission->id,
-                'step_id' => $step->id,
-                'agent_id' => $step->agent_id,
-                'level' => 'info',
-                'message' => 'Etapa executada: ' . $step->name,
-            ]);
-
-            $step->update([
-                'status' => 'completed',
-                'result' => ['ok' => true],
-                'finished_at' => now(),
-            ]);
-        }
-
-        $mission->update([
-            'status' => 'completed',
-            'finished_at' => now(),
-            'result' => ['ok' => true, 'message' => 'Missão concluída'],
+            'level' => 'warning',
+            'message' => 'Gate da Factory bloqueou a missao: nenhum executor real e QA independente foram confirmados.',
+            'context' => ['gate' => 'G3', 'reason' => 'executor_and_independent_qa_not_integrated'],
         ]);
 
         return $mission->refresh();
