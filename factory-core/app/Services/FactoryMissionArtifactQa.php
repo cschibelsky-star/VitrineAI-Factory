@@ -34,6 +34,11 @@ class FactoryMissionArtifactQa
             return ['approved' => false, 'reason' => 'unexpected_files'];
         }
 
+        // Reject unknown or extra keys even when expected file hashes match.
+        if (array_diff(array_keys($hashes), $expectedFiles) !== [] || array_diff($expectedFiles, array_keys($hashes)) !== []) {
+            return ['approved' => false, 'reason' => 'invalid_hash_manifest'];
+        }
+
         $disk = Storage::disk('local');
         foreach ($expectedFiles as $file) {
             if (! $disk->exists($file) || ! is_string($hashes[$file] ?? null)
