@@ -30,7 +30,7 @@ class FactoryMissionArtifactQa
         $expectedFiles = array_map(fn (string $suffix): string => $expected . '/' . $suffix, $required);
         sort($expectedFiles);
         sort($files);
-        if ($files !== $expectedFiles || array_keys($hashes) !== array_keys(array_intersect_key($hashes, array_flip($expectedFiles)))) {
+        if ($files !== $expectedFiles || count($hashes) !== 4) {
             return ['approved' => false, 'reason' => 'unexpected_files'];
         }
 
