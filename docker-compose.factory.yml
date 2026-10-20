@@ -12,6 +12,8 @@ services:
       APP_KEY: ${FACTORY_APP_KEY:-}
       DB_CONNECTION: sqlite
       DB_DATABASE: /app/storage/app/factory.sqlite
+      # Empty until a server-side managed credential is provisioned; endpoint fails closed.
+      FACTORY_VIA_READ_TOKEN: ${FACTORY_VIA_READ_TOKEN:-}
       FACTORY_ADMIN_NAME: ${FACTORY_ADMIN_NAME:-Factory Admin}
       FACTORY_ADMIN_EMAIL: ${FACTORY_ADMIN_EMAIL:-}
       FACTORY_ADMIN_PASSWORD: ${FACTORY_ADMIN_PASSWORD:-}
