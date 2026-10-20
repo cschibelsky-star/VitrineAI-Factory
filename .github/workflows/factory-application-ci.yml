@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - consolidation/factory-baseline-v1
     paths:
       - "factory-core/**"
       - "factory-runtime/**"
@@ -12,6 +13,7 @@ on:
   push:
     branches:
       - consolidation/factory-baseline-v1
+      - fix/via-factory-gates-20261020
     paths:
       - "factory-core/**"
       - "factory-runtime/**"
