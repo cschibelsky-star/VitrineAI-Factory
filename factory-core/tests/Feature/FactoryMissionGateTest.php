@@ -110,4 +110,22 @@ class FactoryMissionGateTest extends TestCase
         $this->assertSame(5, $mission->steps()->count());
     }
 
+    public function test_qa_rejects_artifact_tampering(): void
+    {
+        Storage::fake('local');
+        $mission = $this->createMission();
+        $step = $mission->steps()->create([
+            'name' => 'Prova de integridade',
+            'status' => 'pending',
+            'order_column' => 1,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $evidence = app(FactoryMissionStepExecutor::class)->execute($step);
+        Storage::disk('local')->put($evidence['files'][0], 'arquivo adulterado');
+
+        $qa = app(\App\Services\FactoryMissionArtifactQa::class)->verify($step, $evidence);
+        $this->assertFalse($qa['approved']);
+        $this->assertSame('missing_or_modified_artifact', $qa['reason']);
+    }
+
 }
