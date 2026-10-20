@@ -129,7 +129,10 @@ class FactoryBaselineIntegrationTest extends TestCase
         $this->assertSame(4, $result->steps()->where('status', 'pending')->count());
         $this->assertSame(1, $result->logs()->count());
         $this->assertSame(1, $agent->logs()->count());
-        $this->assertSame('ready', app(FactoryAIAnalysisEngine::class)->analyzeMission($result)['status']);
+        $analysis = app(FactoryAIAnalysisEngine::class)->analyzeMission($result);
+        $this->assertSame('attention', $analysis['status']);
+        $this->assertSame('blocked', $analysis['execution_status']);
+        $this->assertFalse($analysis['verified']);
     }
 
     public function test_github_deployment_and_analysis_plans_do_not_execute_deploys(): void
