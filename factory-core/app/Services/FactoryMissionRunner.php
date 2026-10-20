@@ -20,7 +20,7 @@ class FactoryMissionRunner
         ];
 
         foreach ($steps as $index => $step) {
-            FactoryMissionStep::updateOrCreate(
+            FactoryMissionStep::firstOrCreate(
                 ['mission_id' => $mission->id, 'name' => $step],
                 ['status' => 'pending', 'order_column' => $index + 1]
             );
