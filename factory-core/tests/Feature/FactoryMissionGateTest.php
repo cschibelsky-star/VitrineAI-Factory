@@ -95,4 +95,19 @@ class FactoryMissionGateTest extends TestCase
         $this->assertSame('pending', $second->fresh()->status);
         $this->assertSame([], Storage::disk('local')->allFiles());
     }
+    public function test_preparing_steps_again_does_not_erase_existing_approval_or_block(): void
+    {
+        $mission = $this->createMission();
+        $runner = app(FactoryMissionRunner::class);
+        $runner->createDefaultSteps($mission);
+        $first = $mission->steps()->orderBy('order_column')->firstOrFail();
+        $first->update(['status' => 'blocked', 'result' => ['ok' => false, 'reason' => 'qa_failed']]);
+
+        $runner->createDefaultSteps($mission);
+
+        $this->assertSame('blocked', $first->fresh()->status);
+        $this->assertSame('qa_failed', $first->fresh()->result['reason']);
+        $this->assertSame(5, $mission->steps()->count());
+    }
+
 }
