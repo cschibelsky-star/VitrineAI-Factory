@@ -117,12 +117,17 @@ class FactoryBaselineIntegrationTest extends TestCase
         $step = $runner->assignAgent($mission->steps()->first(), $agent);
         $this->assertSame($agent->id, $step->agent->id);
         $result = $runner->run($mission);
-        $this->assertSame('completed', $result->status);
-        $this->assertTrue($result->result['ok']);
+        // The original runner falsely marked each step completed without executing work.
+        // Canonical policy requires blocking unsupported tasks and preserving evidence.
+        $this->assertSame('blocked', $result->status);
+        $this->assertFalse($result->result['ok']);
+        $this->assertSame('unsupported_or_unready_step', $result->result['reason']);
         $this->assertNotNull($result->started_at);
-        $this->assertNotNull($result->finished_at);
-        $this->assertSame(5, $result->steps()->where('status', 'completed')->count());
-        $this->assertSame(6, $result->logs()->count());
+        $this->assertNull($result->finished_at);
+        $this->assertSame(0, $result->steps()->where('status', 'completed')->count());
+        $this->assertSame(1, $result->steps()->where('status', 'blocked')->count());
+        $this->assertSame(4, $result->steps()->where('status', 'pending')->count());
+        $this->assertSame(1, $result->logs()->count());
         $this->assertSame(1, $agent->logs()->count());
         $this->assertSame('ready', app(FactoryAIAnalysisEngine::class)->analyzeMission($result)['status']);
     }
