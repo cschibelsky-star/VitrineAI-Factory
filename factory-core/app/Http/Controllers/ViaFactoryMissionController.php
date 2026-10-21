@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FactoryMission;
+use App\Services\FactoryMissionArtifactQa;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -41,13 +42,18 @@ class ViaFactoryMissionController extends Controller
             $result = $step->result ?? [];
             $evidence = is_array($result['evidence'] ?? null) ? $result['evidence'] : [];
             $qa = is_array($result['qa'] ?? null) ? $result['qa'] : [];
+            // Never trust a stored approval: files may have changed after the run.
+            $verifiedNow = $step->status === 'completed'
+                && ($result['ok'] ?? false) === true
+                && ($qa['approved'] ?? false) === true
+                && app(FactoryMissionArtifactQa::class)->verify($step, $evidence)['approved'] === true;
 
             return [
                 'id' => $step->id,
                 'name' => $step->name,
                 'status' => $step->status,
                 'agent_id' => $step->agent_id,
-                'qa_artifact_gate_approved' => ($qa['approved'] ?? false) === true,
+                'qa_artifact_gate_approved' => $verifiedNow,
                 'evidence' => [
                     'scope' => $evidence['scope'] ?? null,
                     'files' => $evidence['files'] ?? [],
