@@ -12,6 +12,9 @@ services:
       APP_KEY: ${FACTORY_APP_KEY:-}
       DB_CONNECTION: sqlite
       DB_DATABASE: /app/storage/app/factory.sqlite
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
       # Empty until a server-side managed credential is provisioned; endpoint fails closed.
       FACTORY_VIA_READ_TOKEN: ${FACTORY_VIA_READ_TOKEN:-}
       FACTORY_VIA_HML_BOOTSTRAP_TOKEN: ${FACTORY_VIA_HML_BOOTSTRAP_TOKEN:-false}
