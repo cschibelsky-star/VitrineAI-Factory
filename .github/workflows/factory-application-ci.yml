@@ -46,6 +46,8 @@ jobs:
 
       - name: Start isolated Factory
         env:
+          FACTORY_BOOTSTRAP_MODE: ci
+          FACTORY_CI_FLAG: "true"
           FACTORY_ADMIN_NAME: CI Factory Admin
           FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
           FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
@@ -80,6 +82,8 @@ jobs:
 
       - name: Verify persistence after container recreation
         env:
+          FACTORY_BOOTSTRAP_MODE: ci
+          FACTORY_CI_FLAG: "true"
           FACTORY_ADMIN_NAME: CI Factory Admin
           FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
           FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
