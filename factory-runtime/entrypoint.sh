@@ -25,6 +25,17 @@ if [ -z "${APP_KEY:-}" ]; then
   fi
 fi
 
+# Explicit one-time HML credential bootstrap. Never echo token or use this in production.
+if [ "${FACTORY_VIA_HML_BOOTSTRAP_TOKEN:-false}" = "true" ] && [ "$APP_ENV" != "production" ] && [ -z "${FACTORY_VIA_READ_TOKEN:-}" ]; then
+  token_file="/app/storage/app/factory-via-read-token"
+  if [ ! -s "$token_file" ]; then
+    umask 077
+    php -r '$file=$argv[1]; if (file_exists($file)) exit(1); $token=bin2hex(random_bytes(32)); if (file_put_contents($file, $token, LOCK_EX) === false) exit(2); chmod($file, 0600);' "$token_file"
+  fi
+  FACTORY_VIA_READ_TOKEN="$(cat "$token_file")"
+  export FACTORY_VIA_READ_TOKEN
+fi
+
 export APP_ENV APP_DEBUG APP_URL APP_KEY DB_CONNECTION DB_DATABASE
 
 mkdir -p "$(dirname "$DB_DATABASE")"
