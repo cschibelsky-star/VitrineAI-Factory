@@ -14,6 +14,7 @@ services:
       DB_DATABASE: /app/storage/app/factory.sqlite
       # Empty until a server-side managed credential is provisioned; endpoint fails closed.
       FACTORY_VIA_READ_TOKEN: ${FACTORY_VIA_READ_TOKEN:-}
+      FACTORY_VIA_HML_BOOTSTRAP_TOKEN: ${FACTORY_VIA_HML_BOOTSTRAP_TOKEN:-false}
       FACTORY_BOOTSTRAP_MODE: ${FACTORY_BOOTSTRAP_MODE:-disabled}
       CI: ${FACTORY_CI_FLAG:-false}
       FACTORY_ADMIN_NAME: ${FACTORY_ADMIN_NAME:-Factory Admin}
