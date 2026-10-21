@@ -17,7 +17,10 @@ RUN composer create-project laravel/laravel:^12.0 /app --no-interaction --prefer
     && cp -a /workspace/factory-core/app/. /app/app/ \
     && cp -a /workspace/factory-core/database/. /app/database/ \
     && cp -a /workspace/factory-core/resources/. /app/resources/ \
-    && cp -a /workspace/factory-core/tests/. /app/tests/
+    && cp -a /workspace/factory-core/tests/. /app/tests/ \
+    && cp -a /workspace/factory-core/config/. /app/config/ \
+    && cp -a /workspace/factory-core/routes/. /app/routes/ \
+    && sed -i "s#web: __DIR__.'/../routes/web.php',#web: __DIR__.'/../routes/web.php', api: __DIR__.'/../routes/api.php',#" /app/bootstrap/app.php
 
 FROM php:8.3-cli
 

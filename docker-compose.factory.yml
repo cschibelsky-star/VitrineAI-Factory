@@ -7,18 +7,33 @@ services:
     restart: unless-stopped
     environment:
       APP_ENV: local
-      APP_DEBUG: "true"
+      APP_DEBUG: "false"
       APP_URL: http://localhost:8080
       APP_KEY: ${FACTORY_APP_KEY:-}
       DB_CONNECTION: sqlite
       DB_DATABASE: /app/storage/app/factory.sqlite
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      # Empty until a server-side managed credential is provisioned; endpoint fails closed.
+      FACTORY_VIA_READ_TOKEN: ${FACTORY_VIA_READ_TOKEN:-}
+      FACTORY_VIA_HML_BOOTSTRAP_TOKEN: ${FACTORY_VIA_HML_BOOTSTRAP_TOKEN:-false}
+      FACTORY_BOOTSTRAP_MODE: ${FACTORY_BOOTSTRAP_MODE:-disabled}
+      CI: ${FACTORY_CI_FLAG:-false}
       FACTORY_ADMIN_NAME: ${FACTORY_ADMIN_NAME:-Factory Admin}
       FACTORY_ADMIN_EMAIL: ${FACTORY_ADMIN_EMAIL:-}
       FACTORY_ADMIN_PASSWORD: ${FACTORY_ADMIN_PASSWORD:-}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - factory_storage:/app/storage
+    networks:
+      - factory_existing
 
 volumes:
   factory_storage:
+
+networks:
+  factory_existing:
+    external: true
+    name: ${FACTORY_EXTERNAL_NETWORK:-vitrine_net}

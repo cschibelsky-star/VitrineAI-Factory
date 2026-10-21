@@ -20,7 +20,7 @@ class FactoryMissionRunner
         ];
 
         foreach ($steps as $index => $step) {
-            FactoryMissionStep::updateOrCreate(
+            FactoryMissionStep::firstOrCreate(
                 ['mission_id' => $mission->id, 'name' => $step],
                 ['status' => 'pending', 'order_column' => $index + 1]
             );
@@ -29,36 +29,87 @@ class FactoryMissionRunner
 
     public function run(FactoryMission $mission): FactoryMission
     {
-        $mission->update(['status' => 'running', 'started_at' => now()]);
+        $steps = $mission->steps()->orderBy('order_column')->get();
 
-        FactoryMissionLog::create([
-            'mission_id' => $mission->id,
-            'level' => 'info',
-            'message' => 'Missão iniciada pela Vitrine IA Factory.',
+        // First execution capability is deliberately internal-only.
+        // All other mission actions fail closed until an authorized executor exists.
+        if ($steps->isEmpty() || app()->environment('production')) {
+            return $this->block($mission, null, 'executor_not_available');
+        }
+
+        $mission->update(['status' => 'running', 'started_at' => now(), 'finished_at' => null]);
+
+        foreach ($steps as $step) {
+            if ($step->status === 'completed') {
+                return $this->block($mission, $step, 'previously_completed_step_requires_review');
+            }
+            if (($step->payload['action'] ?? null) !== FactoryMissionStepExecutor::INTERNAL_SCAFFOLD
+                || $step->status !== 'pending') {
+                return $this->block($mission, $step, 'unsupported_or_unready_step');
+            }
+
+            $step->update(['status' => 'running', 'started_at' => now()]);
+            try {
+                $evidence = app(FactoryMissionStepExecutor::class)->execute($step);
+                $qa = app(FactoryMissionArtifactQa::class)->verify($step, $evidence);
+                if (($qa['approved'] ?? false) !== true) {
+                    throw new \RuntimeException('QA reprovou: ' . ($qa['reason'] ?? 'unknown'));
+                }
+
+                $step->update([
+                    'status' => 'completed',
+                    'result' => ['ok' => true, 'evidence' => $evidence, 'qa' => $qa],
+                    'finished_at' => now(),
+                ]);
+                FactoryMissionLog::create([
+                    'mission_id' => $mission->id,
+                    'step_id' => $step->id,
+                    'agent_id' => $step->agent_id,
+                    'level' => 'info',
+                    'message' => 'Etapa interna executada e validada por QA independente.',
+                    'context' => ['qa' => $qa, 'evidence' => $evidence],
+                ]);
+            } catch (\Throwable $exception) {
+                return $this->block($mission, $step, 'execution_or_qa_failed', $exception->getMessage());
+            }
+        }
+
+        $mission->update([
+            'status' => 'completed',
+            'result' => ['ok' => true, 'scope' => 'factory-internal-test-only', 'verified_steps' => $steps->count()],
+            'finished_at' => now(),
         ]);
 
-        foreach ($mission->steps()->orderBy('order_column')->get() as $step) {
-            $step->update(['status' => 'running', 'started_at' => now()]);
+        return $mission->refresh();
+    }
 
-            FactoryMissionLog::create([
-                'mission_id' => $mission->id,
-                'step_id' => $step->id,
-                'agent_id' => $step->agent_id,
-                'level' => 'info',
-                'message' => 'Etapa executada: ' . $step->name,
-            ]);
-
+    private function block(
+        FactoryMission $mission,
+        ?FactoryMissionStep $step,
+        string $reason,
+        ?string $detail = null
+    ): FactoryMission {
+        if ($step && $step->status !== 'completed') {
             $step->update([
-                'status' => 'completed',
-                'result' => ['ok' => true],
+                'status' => 'blocked',
+                'result' => ['ok' => false, 'reason' => $reason],
                 'finished_at' => now(),
             ]);
         }
 
         $mission->update([
-            'status' => 'completed',
-            'finished_at' => now(),
-            'result' => ['ok' => true, 'message' => 'Missão concluída'],
+            'status' => 'blocked',
+            'result' => ['ok' => false, 'reason' => $reason],
+            'finished_at' => null,
+        ]);
+
+        FactoryMissionLog::create([
+            'mission_id' => $mission->id,
+            'step_id' => $step?->id,
+            'agent_id' => $step?->agent_id,
+            'level' => 'warning',
+            'message' => 'Gate de execucao ou QA bloqueou a missao.',
+            'context' => ['reason' => $reason, 'detail' => $detail],
         ]);
 
         return $mission->refresh();

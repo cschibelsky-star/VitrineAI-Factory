@@ -46,15 +46,39 @@ class FactoryAIAnalysisEngine
             $issues[] = 'Missão sem produto associado.';
         }
 
-        if ($mission->steps()->count() === 0) {
+        $steps = $mission->steps()->get();
+        if ($steps->isEmpty()) {
             $issues[] = 'Missão sem etapas cadastradas.';
         }
 
+        $executionStatus = (string) $mission->status;
+        if (in_array($executionStatus, ['blocked', 'failed', 'cancelled'], true)) {
+            $reason = $mission->result['reason'] ?? $executionStatus;
+            $issues[] = 'Missão bloqueada ou reprovada: ' . $reason;
+        }
+
+        // A completed flag alone is not independent proof of delivery.
+        if ($executionStatus === 'completed') {
+            if (($mission->result['ok'] ?? false) !== true
+                || $steps->isEmpty()
+                || $steps->contains(fn ($step) => $step->status !== 'completed'
+                    || ($step->result['ok'] ?? false) !== true
+                    || ($step->result['qa']['approved'] ?? false) !== true)) {
+                $issues[] = 'Missão concluída sem evidência de QA independente para todas as etapas.';
+            }
+        }
+
+        $verified = $executionStatus === 'completed' && $issues === [];
+
         return [
             'status' => $issues === [] ? 'ready' : 'attention',
+            'execution_status' => $executionStatus,
+            'verified' => $verified,
             'mission' => $mission->title,
             'issues' => $issues,
-            'next_action' => $issues[0] ?? 'Missão pronta para execução controlada.',
+            'next_action' => $issues[0] ?? ($verified
+                ? 'Missão concluída com evidências verificadas.'
+                : 'Missão pronta para execução controlada.'),
         ];
     }
 }

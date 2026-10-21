@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - consolidation/factory-baseline-v1
     paths:
       - "factory-core/**"
       - "factory-runtime/**"
@@ -12,6 +13,7 @@ on:
   push:
     branches:
       - consolidation/factory-baseline-v1
+      - fix/via-factory-gates-20261020
     paths:
       - "factory-core/**"
       - "factory-runtime/**"
@@ -36,6 +38,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare disposable CI network
+        run: docker network create --driver bridge vitrine_net
+
       - name: Validate compose
         run: docker compose -f docker-compose.factory.yml config
 
@@ -44,6 +49,9 @@ jobs:
 
       - name: Start isolated Factory
         env:
+          FACTORY_BOOTSTRAP_MODE: ci
+          FACTORY_CI_FLAG: "true"
+          FACTORY_VIA_HML_BOOTSTRAP_TOKEN: "true"
           FACTORY_ADMIN_NAME: CI Factory Admin
           FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
           FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
@@ -52,6 +60,14 @@ jobs:
       - name: Wait for health
         shell: bash
         run: bash factory-runtime/ci-wait-health.sh
+
+      - name: Verify bootstrap token without exposing its value
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec vitrine_factory_hml sh -lc 'test -s /app/storage/app/factory-via-read-token && test "$(stat -c %a /app/storage/app/factory-via-read-token)" = "600"' || exit 37
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/via/factory/missions/1)
+          test "$status" = "401" || { echo "HTTP expected 401 but received $status"; exit 1; }
 
       - name: Laravel smoke
         run: |
@@ -78,6 +94,9 @@ jobs:
 
       - name: Verify persistence after container recreation
         env:
+          FACTORY_BOOTSTRAP_MODE: ci
+          FACTORY_CI_FLAG: "true"
+          FACTORY_VIA_HML_BOOTSTRAP_TOKEN: "true"
           FACTORY_ADMIN_NAME: CI Factory Admin
           FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
           FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
