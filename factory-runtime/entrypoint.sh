@@ -30,8 +30,12 @@ export APP_ENV APP_DEBUG APP_URL APP_KEY DB_CONNECTION DB_DATABASE
 mkdir -p "$(dirname "$DB_DATABASE")"
 touch "$DB_DATABASE"
 
-php artisan migrate --force --no-interaction
-php artisan db:seed --force --no-interaction
+# HML/production must not silently mutate the database during a service start.
+# CI uses an isolated disposable SQLite volume with an explicit bootstrap gate.
+if [ "${FACTORY_BOOTSTRAP_MODE:-}" = "ci" ] && [ "${CI:-}" = "true" ]; then
+  php artisan migrate --force --no-interaction
+  php artisan db:seed --force --no-interaction
+fi
 php artisan optimize:clear
 
 exec php artisan serve --host=0.0.0.0 --port=8080
