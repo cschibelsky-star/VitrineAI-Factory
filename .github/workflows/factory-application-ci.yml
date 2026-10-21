@@ -14,6 +14,7 @@ on:
     branches:
       - consolidation/factory-baseline-v1
       - fix/via-factory-gates-20261020
+      - fix/factory-engine-admin-policy-20261021
     paths:
       - "factory-core/**"
       - "factory-runtime/**"
