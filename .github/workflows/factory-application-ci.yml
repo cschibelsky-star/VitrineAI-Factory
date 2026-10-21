@@ -38,6 +38,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare disposable CI network
+        run: docker network create --driver bridge vitrine_net
+
       - name: Validate compose
         run: docker compose -f docker-compose.factory.yml config
 
