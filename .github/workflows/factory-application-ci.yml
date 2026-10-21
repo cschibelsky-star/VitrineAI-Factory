@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           docker exec vitrine_factory_hml sh -lc 'test -s /app/storage/app/factory-via-read-token && test "$(stat -c %a /app/storage/app/factory-via-read-token)" = "600"'
           status=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8080/api/via/factory/missions/1)
-          test "$status" = "401"
+          test "$status" = "401" || { echo "HTTP expected 401 but received $status"; exit 1; }
 
       - name: Laravel smoke
         run: |
