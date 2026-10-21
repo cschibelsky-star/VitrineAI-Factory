@@ -24,6 +24,13 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - factory_storage:/app/storage
+    networks:
+      - factory_existing
 
 volumes:
   factory_storage:
+
+networks:
+  factory_existing:
+    external: true
+    name: ${FACTORY_EXTERNAL_NETWORK:-vitrine_net}
