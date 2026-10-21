@@ -6,7 +6,7 @@
 $readToken = env('FACTORY_VIA_READ_TOKEN');
 if ((! is_string($readToken) || strlen($readToken) < 32)
     && env('APP_ENV', 'production') !== 'production'
-    && env('FACTORY_VIA_HML_BOOTSTRAP_TOKEN', 'false') === 'true') {
+    && filter_var(env('FACTORY_VIA_HML_BOOTSTRAP_TOKEN', false), FILTER_VALIDATE_BOOLEAN)) {
     $file = storage_path('app/factory-via-read-token');
     if (is_file($file) && is_readable($file) && (fileperms($file) & 0077) === 0) {
         $readToken = trim((string) file_get_contents($file));
