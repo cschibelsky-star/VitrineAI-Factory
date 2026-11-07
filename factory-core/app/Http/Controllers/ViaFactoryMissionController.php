@@ -53,6 +53,10 @@ class ViaFactoryMissionController extends Controller
                 'name' => $step->name,
                 'status' => $step->status,
                 'agent_id' => $step->agent_id,
+                'attempt' => (int) ($result['attempt'] ?? 0),
+                'reason' => $result['qa']['reason'] ?? $result['reason'] ?? null,
+                'return_to_agent_id' => $result['return_to_agent_id'] ?? null,
+                'functional_qa_verified' => false,
                 'qa_artifact_gate_approved' => $verifiedNow,
                 'evidence' => [
                     'scope' => $evidence['scope'] ?? null,
@@ -83,6 +87,7 @@ class ViaFactoryMissionController extends Controller
                 'independent_qa_verified' => false,
             ],
             'steps' => $steps,
+            'stage_acceptance_contracts' => config('factory_stage_acceptance', []),
             'read_only' => true,
         ]);
     }

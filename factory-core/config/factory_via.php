@@ -12,4 +12,8 @@ if ((! is_string($readToken) || strlen($readToken) < 32)
     }
 }
 
-return ['read_token' => $readToken];
+return [
+    'read_token' => $readToken,
+    'correction_enabled' => env('FACTORY_VIA_CORRECTION_ENABLED', false),
+    'correction_token' => env('FACTORY_VIA_CORRECTION_TOKEN'),
+];

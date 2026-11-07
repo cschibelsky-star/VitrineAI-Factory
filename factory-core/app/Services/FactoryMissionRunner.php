@@ -148,14 +148,17 @@ class FactoryMissionRunner
      * Internal supervision command. Caller must enforce owner permissions.
      * No public write route is introduced by this service.
      */
-    public function requestCorrection(FactoryMissionStep $step, string $reason): FactoryMissionStep
+    public function requestCorrection(FactoryMissionStep $step, string $reason, ?int $expectedAttempt = null): FactoryMissionStep
     {
         if (trim($reason) === '') {
             throw new \InvalidArgumentException('Motivo da correcao obrigatorio.');
         }
-        return DB::transaction(function () use ($step, $reason): FactoryMissionStep {
+        return DB::transaction(function () use ($step, $reason, $expectedAttempt): FactoryMissionStep {
             FactoryMission::query()->lockForUpdate()->findOrFail($step->mission_id);
             $current = FactoryMissionStep::query()->lockForUpdate()->findOrFail($step->id);
+            if ($expectedAttempt !== null && (int) ($current->result['attempt'] ?? 0) !== $expectedAttempt) {
+                throw new \RuntimeException('Versao da tentativa alterada.');
+            }
             if (! in_array($current->status, ['rework_required', 'blocked'], true)
                 || (int) ($current->result['attempt'] ?? 0) >= 3) {
                 throw new \RuntimeException('Etapa indisponivel para nova tentativa.');
