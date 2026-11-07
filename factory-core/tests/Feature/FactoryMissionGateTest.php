@@ -216,4 +216,38 @@ class FactoryMissionGateTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $runner->requestCorrection($step, 'Reabrir indevidamente');
     }
+    public function test_recomputed_hash_cannot_hide_invalid_generated_php(): void
+    {
+        Storage::fake('local');
+        $mission = $this->createMission();
+        $step = $mission->steps()->create([
+            'name' => 'Invalid PHP', 'status' => 'pending', 'order_column' => 1,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $evidence = app(FactoryMissionStepExecutor::class)->execute($step);
+        $file = $evidence['artifact_path'].'/routes/web.php';
+        Storage::disk('local')->put($file, '<?php function broken( {');
+        $evidence['sha256'][$file] = hash('sha256', Storage::disk('local')->get($file));
+        $qa = app(\App\Services\FactoryMissionArtifactQa::class)->verify($step, $evidence);
+        $this->assertFalse($qa['approved']);
+        $this->assertSame('invalid_scaffold_syntax', $qa['reason']);
+    }
+
+    public function test_recomputed_hash_cannot_hide_missing_runtime_dependency(): void
+    {
+        Storage::fake('local');
+        $mission = $this->createMission();
+        $step = $mission->steps()->create([
+            'name' => 'Invalid dependencies', 'status' => 'pending', 'order_column' => 1,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $evidence = app(FactoryMissionStepExecutor::class)->execute($step);
+        $file = $evidence['artifact_path'].'/composer.json';
+        Storage::disk('local')->put($file, '{"type":"project","require":{}}');
+        $evidence['sha256'][$file] = hash('sha256', Storage::disk('local')->get($file));
+        $qa = app(\App\Services\FactoryMissionArtifactQa::class)->verify($step, $evidence);
+        $this->assertFalse($qa['approved']);
+        $this->assertSame('invalid_scaffold_dependencies', $qa['reason']);
+    }
+
 }

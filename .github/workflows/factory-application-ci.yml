@@ -110,6 +110,36 @@ jobs:
           docker exec vitrine_factory_hml php /tmp/ci-persistence.php verify
           curl --fail --silent --show-error http://127.0.0.1:8080/admin >/dev/null
 
+      - name: Checkout pinned VIA adapter for real HTTP integration
+        uses: actions/checkout@v4
+        with:
+          repository: cschibelsky-star/via
+          ref: ac42ea99dbbd21e83b5fa85d10869f18edb7c746
+          path: .ci-via
+          persist-credentials: false
+
+      - name: Setup Node for VIA adapter
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Real VIA adapter to Factory HTTP correction cycle
+        env:
+          FACTORY_CI_FLAG: "true"
+          FACTORY_BOOTSTRAP_MODE: disabled
+          FACTORY_VIA_READ_TOKEN: ci-only-reader-credential-000000000000000
+          FACTORY_VIA_CORRECTION_ENABLED: "true"
+          FACTORY_VIA_CORRECTION_TOKEN: ci-only-correct-credential-00000000000000
+        run: |
+          docker compose -f docker-compose.factory.yml up -d --force-recreate factory
+          bash factory-runtime/ci-wait-health.sh
+          docker cp factory-runtime/ci-via-supervision.php vitrine_factory_hml:/tmp/ci-via-supervision.php
+          docker exec vitrine_factory_hml php /tmp/ci-via-supervision.php prepare > ci-results/supervision-ids.json
+          node factory-runtime/ci-via-supervision.mjs correct
+          docker exec vitrine_factory_hml php /tmp/ci-via-supervision.php pending
+          docker exec vitrine_factory_hml php /tmp/ci-via-supervision.php resume
+          node factory-runtime/ci-via-supervision.mjs verify
+
       - name: Factory core PHP syntax
         shell: bash
         run: |
