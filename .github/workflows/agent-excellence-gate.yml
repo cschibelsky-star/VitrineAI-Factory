@@ -1,0 +1,28 @@
+name: Agent Excellence Gate Tests
+on:
+  pull_request:
+    paths:
+      - 'tools/verify-agent-handoff.php'
+      - 'tests/test-agent-handoff.php'
+      - '.github/workflows/agent-excellence-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/verify-agent-handoff.php'
+      - 'tests/test-agent-handoff.php'
+      - '.github/workflows/agent-excellence-gate.yml'
+permissions:
+  contents: read
+jobs:
+  verify-handoff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check PHP interpreter
+        run: php -v
+      - name: Syntax validation
+        run: |
+          php -l tools/verify-agent-handoff.php
+          php -l tests/test-agent-handoff.php
+      - name: Positive and negative handoff cases
+        run: php tests/test-agent-handoff.php
