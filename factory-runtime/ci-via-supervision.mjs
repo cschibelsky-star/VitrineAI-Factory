@@ -30,6 +30,7 @@ if (process.argv[2] === 'correct') {
   assert.equal(before.status, 200);
   assert.equal(before.payload.mission.status, 'blocked');
   assert.equal(before.payload.mission.artifact_gate_passed, false);
+  assert.equal(before.payload.steps.find(s => s.id === ids.first).reason, 'approved_artifact_changed');
   assert.equal(before.payload.steps.find(s => s.id === ids.second).status, 'pending');
   const correction = {
     method: 'POST', pathname: read.pathname + '/steps/' + ids.first + '/correction', authorization,
