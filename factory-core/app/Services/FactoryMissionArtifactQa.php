@@ -16,6 +16,10 @@ class FactoryMissionArtifactQa
         }
 
         $expected = sprintf('factory-builds/factory-internal-mission-%d-step-%d', $step->mission_id, $step->id);
+        $attempt = (int) ($step->result['attempt'] ?? 1);
+        if ($attempt > 1) {
+            $expected .= '-attempt-' . $attempt;
+        }
         if (($evidence['artifact_path'] ?? null) !== $expected) {
             return ['approved' => false, 'reason' => 'wrong_artifact_path'];
         }
@@ -45,6 +49,19 @@ class FactoryMissionArtifactQa
                 || ! hash_equals($hashes[$file], hash('sha256', $disk->get($file)))) {
                 return ['approved' => false, 'reason' => 'missing_or_modified_artifact'];
             }
+        }
+        // Integrity alone does not prove even a valid scaffold.
+        try {
+            $composer = json_decode($disk->get($expected . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($composer) || ($composer['type'] ?? null) !== 'project'
+                || ($composer['require']['php'] ?? null) !== '^8.3'
+                || ($composer['require']['laravel/framework'] ?? null) !== '^12.0') {
+                return ['approved' => false, 'reason' => 'invalid_scaffold_dependencies'];
+            }
+            // Parse generated PHP without executing it or making external calls.
+            token_get_all($disk->get($expected . '/routes/web.php'), TOKEN_PARSE);
+        } catch (\JsonException | \ParseError $exception) {
+            return ['approved' => false, 'reason' => 'invalid_scaffold_syntax'];
         }
         return ['approved' => true, 'reason' => 'verified_artifact_hashes', 'files_verified' => 4];
     }
