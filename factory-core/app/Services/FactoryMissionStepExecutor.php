@@ -26,6 +26,10 @@ class FactoryMissionStepExecutor
         }
 
         $name = sprintf('Factory Internal Mission %d Step %d', $step->mission_id, $step->id);
+        $attempt = (int) ($step->result['attempt'] ?? 1);
+        if ($attempt > 1) {
+            $name .= ' Attempt ' . $attempt;
+        }
         $path = 'factory-builds/' . Str::slug($name);
         $disk = Storage::disk('local');
 

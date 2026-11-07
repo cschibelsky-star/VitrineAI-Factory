@@ -16,6 +16,10 @@ class FactoryMissionArtifactQa
         }
 
         $expected = sprintf('factory-builds/factory-internal-mission-%d-step-%d', $step->mission_id, $step->id);
+        $attempt = (int) ($step->result['attempt'] ?? 1);
+        if ($attempt > 1) {
+            $expected .= '-attempt-' . $attempt;
+        }
         if (($evidence['artifact_path'] ?? null) !== $expected) {
             return ['approved' => false, 'reason' => 'wrong_artifact_path'];
         }

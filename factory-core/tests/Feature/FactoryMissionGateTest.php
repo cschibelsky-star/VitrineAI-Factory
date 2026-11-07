@@ -128,4 +128,92 @@ class FactoryMissionGateTest extends TestCase
         $this->assertSame('missing_or_modified_artifact', $qa['reason']);
     }
 
+    public function test_rejection_returns_for_correction_without_releasing_next_agent(): void
+    {
+        Storage::fake('local');
+        $mission = $this->createMission();
+        $first = $mission->steps()->create([
+            'name' => 'Primeira', 'status' => 'pending', 'order_column' => 1,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $second = $mission->steps()->create([
+            'name' => 'Segunda', 'status' => 'pending', 'order_column' => 2,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $this->mock(\App\Services\FactoryMissionArtifactQa::class, function ($mock) {
+            $mock->shouldReceive('verify')->once()->andReturn(['approved' => false, 'reason' => 'test_rejection']);
+        });
+        $runner = app(FactoryMissionRunner::class);
+        $this->assertSame('blocked', $runner->run($mission)->status);
+        $this->assertSame('rework_required', $first->fresh()->status);
+        $this->assertSame('pending', $second->fresh()->status);
+        $oldEvidence = $first->fresh()->result['evidence'];
+        $this->app->forgetInstance(\App\Services\FactoryMissionArtifactQa::class);
+        $runner->requestCorrection($first, 'Corrigir entrega reprovada');
+        $this->assertSame('completed', $runner->run($mission)->status);
+        $this->assertSame(2, $first->fresh()->result['attempt']);
+        $this->assertNotSame($oldEvidence['artifact_path'], $first->fresh()->result['evidence']['artifact_path']);
+        foreach ($oldEvidence['files'] as $file) {
+            Storage::disk('local')->assertExists($file);
+        }
+        $this->assertTrue($mission->logs()->where('message', 'VIA: etapa devolvida ao responsavel para correcao.')->exists());
+    }
+
+    public function test_modified_approved_artifact_blocks_new_downstream_step(): void
+    {
+        Storage::fake('local');
+        $mission = $this->createMission();
+        $first = $mission->steps()->create([
+            'name' => 'Primeira', 'status' => 'pending', 'order_column' => 1,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $runner = app(FactoryMissionRunner::class);
+        $runner->run($mission);
+        $second = $mission->steps()->create([
+            'name' => 'Segunda', 'status' => 'pending', 'order_column' => 2,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        Storage::disk('local')->put($first->fresh()->result['evidence']['files'][0], 'adulterado');
+        $this->assertSame('blocked', $runner->run($mission)->status);
+        $this->assertSame('blocked', $first->fresh()->status);
+        $this->assertFalse($first->fresh()->result['ok']);
+        $this->assertSame('pending', $second->fresh()->status);
+    }
+
+    public function test_three_failed_attempts_require_supervisor_review(): void
+    {
+        Storage::fake('local');
+        $mission = $this->createMission();
+        $step = $mission->steps()->create([
+            'name' => 'Limite', 'status' => 'pending', 'order_column' => 1,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $this->mock(\App\Services\FactoryMissionArtifactQa::class, function ($mock) {
+            $mock->shouldReceive('verify')->times(3)->andReturn(['approved' => false, 'reason' => 'test_rejection']);
+        });
+        $runner = app(FactoryMissionRunner::class);
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $runner->run($mission);
+            $this->assertSame($attempt, $step->fresh()->result['attempt']);
+            if ($attempt < 3) {
+                $runner->requestCorrection($step, 'Revisar');
+            }
+        }
+        $this->expectException(\RuntimeException::class);
+        $runner->requestCorrection($step, 'Nao permitir loop infinito');
+    }
+
+    public function test_completed_step_cannot_be_reopened_as_correction(): void
+    {
+        Storage::fake('local');
+        $mission = $this->createMission();
+        $step = $mission->steps()->create([
+            'name' => 'Aprovada', 'status' => 'pending', 'order_column' => 1,
+            'payload' => ['action' => FactoryMissionStepExecutor::INTERNAL_SCAFFOLD],
+        ]);
+        $runner = app(FactoryMissionRunner::class);
+        $runner->run($mission);
+        $this->expectException(\RuntimeException::class);
+        $runner->requestCorrection($step, 'Reabrir indevidamente');
+    }
 }
