@@ -13,11 +13,11 @@ Factory impede avançar após reprovação. Produção exige autorização do pr
 - Etapas concluídas são verificadas novamente antes de continuar.
 - Transação serializa runner/correção nos bancos com suporte a lockForUpdate.
 - SQLite não oferece bloqueio de linha: execução concorrente requer validação adicional antes de habilitar workers.
-- Correção é método interno, sem nova rota pública. Caller futuro deve autenticar e autorizar o proprietário.
+- Correção possui API dedicada, desativada por padrão e restrita a HML interna; veja VIA_SUPERVISION_API.md.
 
 ## Limites obrigatórios
 Apenas factory.internal_scaffold tem executor. QA atual comprova manifesto e hashes de quatro arquivos; NÃO comprova aplicação funcional, testes de navegador, deploy ou homologação.
-Demais ações continuam bloqueadas. VIA ainda não chama requestCorrection por API.
+Demais ações continuam bloqueadas. Adapter VIA e API de correção estão propostos nas PRs VIA #34 e Factory #19; acionamento real ainda não foi homologado.
 Campo supervisor=VIA identifica a política, não comprova acionamento pela VIA.
 Não liberar agentes comerciais com este QA.
 
