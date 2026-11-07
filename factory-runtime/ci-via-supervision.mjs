@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-const { createFactorySupervision } = await import(pathToFileURL(path.resolve('.ci-via/runtime/factory-supervision.js')));
+const { createFactorySupervision } = await import(pathToFileURL(path.resolve(process.env.VIA_FACTORY_ADAPTER_PATH || '.ci-via/runtime/factory-supervision.js')));
 const ids = JSON.parse(fs.readFileSync('ci-results/supervision-ids.json', 'utf8'));
 // Public disposable fixture strings; never provision these in a shared environment.
 const env = {
