@@ -52,6 +52,15 @@ Não repetir uma rota negada ou usar Compose amplo/SSH para evitar a restrição
 
 ## Autorizações ainda necessárias
 
-Revisão independente não é substituída por EXECUTAR do owner. Para avançar da preparação para VPS: aprovar o destino e o plano concretos, as operações exatas do conector, o Compose isolado e o banco descartável. Custos de API: zero previsto, porque não há chamadas a modelos/providers; consumo de CPU/RAM/disco deverá ser cotado após verificar a capacidade disponível. Não foram reservados recursos nem alterado limite de gasto.
+Revisão independente não é substituída por EXECUTAR do owner. Para avançar da preparação para VPS: aprovar o destino e o plano concretos, as operações exatas do conector, o Compose isolado e o banco descartável. Custos de API: zero previsto, porque não há chamadas a modelos/providers. O Compose preparado limita o conjunto a 768 MiB de RAM e 1 CPU, com tmpfs de banco de 512 MiB e /tmp de 64 MiB. A consulta de capacidade retornou CPU 0%, memória 50,1% e disco 40,66%, sem valores absolutos de capacidade; isso não comprova headroom suficiente. Verificar os valores absolutos e espaço da imagem antes de aprovar o uso na VPS. Não foram reservados recursos nem alterado limite de gasto.
 
 Merge da cadeia, mudança de tráfego, domínio, credenciais reais, migration de ambiente existente, implantação em produção e ativação de agentes permanecem fora deste roteiro.
+
+
+## Runner concreto para a primeira rodada limitada
+
+Arquivos revisáveis: docker-compose.governance-validation.yml e tools/governance-validation/Dockerfile. Serviços exatos: governance_db e governance_tests; não usa os serviços factory/via/marketing existentes. O teste usa dados fictícios e banco factory_governance_ci somente no namespace de rede do banco descartável. Não há porta publicada, mount do host, volume persistente, nome fixo de container ou rede externa. O usuário do runner é 65534, filesystem somente leitura, capabilities removidas e sem escalada de privilégios.
+
+A primeira rodada cobre persistência, gates e concorrência do adapter, não login/ACL/Cockpit nem a operação completa VIA→Core. Seu CI valida o Compose renderizado com o contrato de isolamento antes do build/up e executa 16 casos SQLite, 16 metadados, 16 InnoDB e 2 de concorrência. A prova VIA interprodutos permanece separada e pinada por commit no #37.
+
+Este Compose não foi cadastrado ou executado na VPS. A política a revisar para o projeto novo deve mencionar expressamente esse arquivo e os dois serviços, sem privilégios para factory/via/Core/Marketing. A compatibilidade das operações de execução e coleta do exit code precisa ser verificada pelo conector autorizado; não se presume que a presença do arquivo ou um build CI torne a operação disponível no V5. Se não houver operação permitida que preserve esses limites, continuar bloqueado e revisar a rota com o proprietário, sem contornar o controle.
