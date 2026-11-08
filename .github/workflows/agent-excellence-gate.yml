@@ -1,0 +1,45 @@
+name: Agent Excellence Gate Tests
+on:
+  pull_request:
+    paths:
+      - 'tools/verify-agent-handoff.php'
+      - 'tests/test-agent-handoff.php'
+      - 'tests/test-mission-handoff-repository.php'
+      - 'tests/fixtures/mission-pdo-bridge.php'
+      - 'factory-core/app/Services/Governance/**'
+      - '.github/workflows/agent-excellence-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/verify-agent-handoff.php'
+      - 'tests/test-agent-handoff.php'
+      - 'tests/test-mission-handoff-repository.php'
+      - 'tests/fixtures/mission-pdo-bridge.php'
+      - 'factory-core/app/Services/Governance/**'
+      - '.github/workflows/agent-excellence-gate.yml'
+permissions:
+  contents: read
+jobs:
+  verify-handoff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql
+          coverage: none
+      - name: Check PHP interpreter
+        run: php -v
+      - name: Syntax validation
+        run: |
+          php -l tools/verify-agent-handoff.php
+          php -l tests/test-agent-handoff.php
+          php -l tests/test-mission-handoff-repository.php
+          php -l tests/fixtures/mission-pdo-bridge.php
+          php -l factory-core/app/Services/Governance/MissionHandoffRepository.php
+      - name: Positive and negative handoff cases
+        run: php tests/test-agent-handoff.php
+
+      - name: Canonical mission persistence and correction safety
+        run: php tests/test-mission-handoff-repository.php
