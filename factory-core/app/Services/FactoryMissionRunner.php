@@ -38,6 +38,7 @@ class FactoryMissionRunner
 
     private function runLocked(FactoryMission $mission): FactoryMission
     {
+        $this->assertNoObserverHandoff($mission);
         $steps = $mission->steps()->orderBy('order_column')->orderBy('id')->get();
 
         // First execution capability is deliberately internal-only.
@@ -154,7 +155,8 @@ class FactoryMissionRunner
             throw new \InvalidArgumentException('Motivo da correcao obrigatorio.');
         }
         return DB::transaction(function () use ($step, $reason, $expectedAttempt): FactoryMissionStep {
-            FactoryMission::query()->lockForUpdate()->findOrFail($step->mission_id);
+            $mission = FactoryMission::query()->lockForUpdate()->findOrFail($step->mission_id);
+            $this->assertNoObserverHandoff($mission);
             $current = FactoryMissionStep::query()->lockForUpdate()->findOrFail($step->id);
             if ($expectedAttempt !== null && (int) ($current->result['attempt'] ?? 0) !== $expectedAttempt) {
                 throw new \RuntimeException('Versao da tentativa alterada.');
@@ -173,6 +175,16 @@ class FactoryMissionRunner
             $current->update(['status' => 'pending', 'finished_at' => null]);
             return $current->refresh();
         });
+    }
+
+    // A persisted OBSERVER handoff must not be bypassed by the legacy runner.
+    // Preserve its state/audit unchanged: never call block() over that record.
+    private function assertNoObserverHandoff(FactoryMission $mission): void
+    {
+        $dna = $mission->mission_dna;
+        if (is_array($dna) && array_key_exists('handoff_supervision', $dna)) {
+            throw new \RuntimeException('observer_handoff_requires_independent_authorization');
+        }
     }
 
     public function assignAgent(FactoryMissionStep $step, FactoryAgent $agent): FactoryMissionStep

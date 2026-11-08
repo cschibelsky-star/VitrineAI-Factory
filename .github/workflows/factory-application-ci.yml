@@ -3,6 +3,7 @@ name: Factory Application CI
 on:
   pull_request:
     branches:
+      - feat/via-stage-supervision-20261107
       - fix/via-factory-gates-20261020
       - main
       - consolidation/factory-baseline-v1

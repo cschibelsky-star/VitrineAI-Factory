@@ -3,6 +3,7 @@ name: Factory Baseline CI
 on:
   pull_request:
     branches:
+      - feat/via-stage-supervision-20261107
       - main
     paths:
       - "factory-core/**"
@@ -28,6 +29,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare disposable CI network
+        run: docker network create --driver bridge vitrine_net
+
       - name: Validate compose
         run: docker compose -f docker-compose.factory.yml config
 
@@ -36,6 +40,8 @@ jobs:
 
       - name: Start isolated Factory
         env:
+          FACTORY_BOOTSTRAP_MODE: ci
+          FACTORY_CI_FLAG: "true"
           FACTORY_ADMIN_NAME: CI Factory Admin
           FACTORY_ADMIN_EMAIL: ci-factory@example.invalid
           FACTORY_ADMIN_PASSWORD: ci-only-not-a-secret
@@ -43,21 +49,7 @@ jobs:
 
       - name: Wait for health
         shell: bash
-        run: |
-          set -euo pipefail
-          for i in {1..60}; do
-            status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' vitrine_factory_hml 2>/dev/null || true)"
-            if [ "$status" = "healthy" ]; then
-              exit 0
-            fi
-            if [ "$status" = "unhealthy" ] || [ "$status" = "exited" ]; then
-              docker compose -f docker-compose.factory.yml logs --no-color factory
-              exit 1
-            fi
-            sleep 5
-          done
-          docker compose -f docker-compose.factory.yml logs --no-color factory
-          exit 1
+        run: bash factory-runtime/ci-wait-health.sh
 
       - name: Laravel smoke
         run: |
