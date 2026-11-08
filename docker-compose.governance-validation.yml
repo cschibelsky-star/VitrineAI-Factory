@@ -1,0 +1,49 @@
+name: factory_marketing_governance_hml_20261108
+
+services:
+  governance_db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: factory_governance_ci
+      MARIADB_ROOT_PASSWORD: ci-only-governance
+      MARIADB_ROOT_HOST: '%'
+    command: ['--innodb-buffer-pool-size=64M', '--innodb-log-file-size=32M', '--max-connections=15']
+    tmpfs:
+      - /var/lib/mysql:rw,nosuid,size=512m
+    networks: [governance_internal]
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+    healthcheck:
+      test: ['CMD', 'mariadb-admin', 'ping', '-h', '127.0.0.1', '-pci-only-governance']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  governance_tests:
+    build:
+      context: .
+      dockerfile: tools/governance-validation/Dockerfile
+    # Localhost below is this disposable database's network namespace, never the host.
+    network_mode: service:governance_db
+    user: '65534:65534'
+    depends_on:
+      governance_db:
+        condition: service_healthy
+    environment:
+      FACTORY_GOVERNANCE_TEST_DRIVER: mariadb
+      FACTORY_DISPOSABLE_DB: I_CONFIRM_DISPOSABLE_CI
+      FACTORY_CI_DB_USER: root
+      FACTORY_CI_DB_PASSWORD: ci-only-governance
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+
+networks:
+  governance_internal:
+    internal: true

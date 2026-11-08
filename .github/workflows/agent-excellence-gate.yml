@@ -1,0 +1,112 @@
+name: Agent Excellence Gate Tests
+on:
+  pull_request:
+    paths:
+      - 'tools/verify-agent-handoff.php'
+      - 'tests/test-agent-handoff.php'
+      - 'tests/test-mission-handoff-repository.php'
+      - 'tests/fixtures/**'
+      - 'tests/test-mission-handoff-mysql-concurrency.php'
+      - 'factory-core/app/Services/Governance/**'
+      - 'tools/governance-validation/**'
+      - 'docker-compose.governance-validation.yml'
+      - '.github/workflows/agent-excellence-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/verify-agent-handoff.php'
+      - 'tests/test-agent-handoff.php'
+      - 'tests/test-mission-handoff-repository.php'
+      - 'tests/fixtures/**'
+      - 'tests/test-mission-handoff-mysql-concurrency.php'
+      - 'factory-core/app/Services/Governance/**'
+      - 'tools/governance-validation/**'
+      - 'docker-compose.governance-validation.yml'
+      - '.github/workflows/agent-excellence-gate.yml'
+permissions:
+  contents: read
+jobs:
+  verify-handoff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, pdo_mysql
+          coverage: none
+      - name: Check PHP interpreter
+        run: php -v
+      - name: Syntax validation
+        run: |
+          php -l tools/verify-agent-handoff.php
+          php -l tests/test-agent-handoff.php
+          php -l tests/test-mission-handoff-repository.php
+          php -l tests/fixtures/mission-pdo-bridge.php
+          php -l factory-core/app/Services/Governance/MissionHandoffRepository.php
+      - name: Positive and negative handoff cases
+        run: php tests/test-agent-handoff.php
+
+      - name: Canonical mission persistence and correction safety
+        run: php tests/test-mission-handoff-repository.php
+
+  mariadb-persistence:
+    name: MariaDB InnoDB persistence and concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: factory_governance_ci
+          MARIADB_ROOT_PASSWORD: ci-only-governance
+          MARIADB_ROOT_HOST: '%'
+        ports:
+          - '127.0.0.1:3306:3306'
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -pci-only-governance"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      FACTORY_GOVERNANCE_TEST_DRIVER: mariadb
+      FACTORY_DISPOSABLE_DB: I_CONFIRM_DISPOSABLE_CI
+      FACTORY_CI_DB_USER: root
+      FACTORY_CI_DB_PASSWORD: ci-only-governance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Syntax validation
+        run: |
+          php -l tests/fixtures/mission-test-database.php
+          php -l tests/fixtures/mission-mysql-worker.php
+          php -l tests/test-mission-handoff-mysql-concurrency.php
+      - name: Same 16 repository safety cases on real InnoDB
+        run: php tests/test-mission-handoff-repository.php
+      - name: Independent processes under a held row lock
+        run: php tests/test-mission-handoff-mysql-concurrency.php
+
+  isolated-compose-validation:
+    name: Isolated governance runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolation contract before starting containers
+        run: |
+          docker compose -p governance-ci -f docker-compose.governance-validation.yml config --format json > /tmp/governance-compose.json
+          python3 tools/governance-validation/verify-compose-isolation.py /tmp/governance-compose.json
+      - name: Build dedicated test runner
+        run: docker compose -p governance-ci -f docker-compose.governance-validation.yml build governance_tests
+      - name: Run disposable governance validation
+        run: docker compose -p governance-ci -f docker-compose.governance-validation.yml up --abort-on-container-exit --exit-code-from governance_tests
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -p governance-ci -f docker-compose.governance-validation.yml logs --no-color
+      - name: Cleanup only the disposable CI project
+        if: always()
+        run: docker compose -p governance-ci -f docker-compose.governance-validation.yml down -v --remove-orphans
