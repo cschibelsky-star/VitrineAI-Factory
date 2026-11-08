@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require dirname(__DIR__).'/factory-core/app/Services/Governance/MissionHandoffRepository.php';
 use App\Services\Governance\MissionHandoffRepository;
+require __DIR__.'/fixtures/mission-test-database.php';
 
 function check(bool $ok, string $why = 'assertion failed'): void {
     if (!$ok) throw new RuntimeException($why);
@@ -11,8 +12,8 @@ function rejects(callable $fn): void {
     throw new RuntimeException('expected rejection');
 }
 function setup(): array {
-    $db = new PDO('sqlite::memory:');
-    $db->exec('CREATE TABLE factory_missions (id INTEGER PRIMARY KEY, product_id INTEGER, status TEXT, mission_dna TEXT, updated_at TEXT)');
+    $db = missionTestConnection();
+    missionTestReset($db);
     $scope = ['productId'=>1, 'tenantId'=>'a', 'projectId'=>'marketing'];
     $task = ['id'=>'T-1', 'repository'=>'org/repo', 'resultSha'=>str_repeat('b',40), 'gate'=>'G3',
         'correctionOwner'=>'developer', 'attempts'=>0, 'maxAttempts'=>2, 'budgetExceeded'=>false];
@@ -28,6 +29,7 @@ function setup(): array {
 function dna(PDO $db): array {
     return json_decode($db->query('SELECT mission_dna FROM factory_missions')->fetchColumn(),true,512,JSON_THROW_ON_ERROR);
 }
+if (defined('FACTORY_GOVERNANCE_FIXTURES_ONLY')) return;
 $cases = [
     'persists owner, state, audit and passive outbox atomically' => function($db,$repo,$scope,$cmd) {
         $r=$repo->recordAssessment(1,$scope,$cmd);$g=dna($db)['handoff_supervision'];
@@ -71,7 +73,11 @@ $cases = [
         $cmd['plan']['resultSha']=str_repeat('a',40);rejects(fn()=>$repo->recordAssessment(1,$scope,$cmd));
     },
     'failed update rolls back audit and outbox' => function($db,$repo,$scope,$cmd) {
-        $db->exec("CREATE TRIGGER deny_write BEFORE UPDATE ON factory_missions BEGIN SELECT RAISE(ABORT, 'write denied'); END");
+        if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
+            $db->exec("CREATE TRIGGER deny_write BEFORE UPDATE ON factory_missions FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='write denied'");
+        } else {
+            $db->exec("CREATE TRIGGER deny_write BEFORE UPDATE ON factory_missions BEGIN SELECT RAISE(ABORT, 'write denied'); END");
+        }
         rejects(fn()=>$repo->recordAssessment(1,$scope,$cmd));$g=dna($db)['handoff_supervision'];
         check($g['revision']===0 && $g['audit']===[] && $g['outbox']===[]);
     },

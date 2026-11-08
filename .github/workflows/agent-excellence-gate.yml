@@ -5,7 +5,8 @@ on:
       - 'tools/verify-agent-handoff.php'
       - 'tests/test-agent-handoff.php'
       - 'tests/test-mission-handoff-repository.php'
-      - 'tests/fixtures/mission-pdo-bridge.php'
+      - 'tests/fixtures/**'
+      - 'tests/test-mission-handoff-mysql-concurrency.php'
       - 'factory-core/app/Services/Governance/**'
       - '.github/workflows/agent-excellence-gate.yml'
   push:
@@ -14,7 +15,8 @@ on:
       - 'tools/verify-agent-handoff.php'
       - 'tests/test-agent-handoff.php'
       - 'tests/test-mission-handoff-repository.php'
-      - 'tests/fixtures/mission-pdo-bridge.php'
+      - 'tests/fixtures/**'
+      - 'tests/test-mission-handoff-mysql-concurrency.php'
       - 'factory-core/app/Services/Governance/**'
       - '.github/workflows/agent-excellence-gate.yml'
 permissions:
@@ -43,3 +45,43 @@ jobs:
 
       - name: Canonical mission persistence and correction safety
         run: php tests/test-mission-handoff-repository.php
+
+  mariadb-persistence:
+    name: MariaDB InnoDB persistence and concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: factory_governance_ci
+          MARIADB_ROOT_PASSWORD: ci-only-governance
+          MARIADB_ROOT_HOST: '%'
+        ports:
+          - '127.0.0.1:3306:3306'
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 -pci-only-governance"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      FACTORY_GOVERNANCE_TEST_DRIVER: mariadb
+      FACTORY_DISPOSABLE_DB: I_CONFIRM_DISPOSABLE_CI
+      FACTORY_CI_DB_USER: root
+      FACTORY_CI_DB_PASSWORD: ci-only-governance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+      - name: Syntax validation
+        run: |
+          php -l tests/fixtures/mission-test-database.php
+          php -l tests/fixtures/mission-mysql-worker.php
+          php -l tests/test-mission-handoff-mysql-concurrency.php
+      - name: Same 16 repository safety cases on real InnoDB
+        run: php tests/test-mission-handoff-repository.php
+      - name: Independent processes under a held row lock
+        run: php tests/test-mission-handoff-mysql-concurrency.php
