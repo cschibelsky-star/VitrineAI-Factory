@@ -45,7 +45,9 @@ Arquivo JSON com estes campos:
 O gate local de `ready_for_via` exige autorização da escrita na branch, SHA válidos e diferentes, ao menos um arquivo alterado, checks obrigatórios presentes e aprovados com comando e evidência, e parecer independente `approved` com evidência. Este gate **não declara aprovação final da VIA**; somente verifica pré-condições formais. A VIA precisa checar autenticidade externa das evidências.
 
 Exemplo de uso: `php tools/verify-agent-handoff.php caminho/handoff.json`.
-Saída: `PASS: ready_for_via` ou falhas com código 1; não consome API.
+Saída JSON compatível com o gate estrutural do Marketing: `decision`, `can_advance=false`, `evidence_verified=false`, `failures`. Branches main/master/production/prod são recusadas. Códigos de saída: 1=bloqueado; 2=entrada inválida; 3=metadados conformes, pendentes de verificação externa. O verificador não emite 0; não consome API. Esta mudança substitui o antigo PASS/exit 0. Consumidores do piloto devem tratar 3 como pendência, nunca como aprovação.
+
+A VIA correlaciona evidências apenas quando o servidor define repositório, PR, mapeamento de agentes para logins e todos os workflows obrigatórios por check. O JSON do executor não define a política do supervisor. O planejamento de devolução exige contexto confiável com tarefa/SHA/etapa/responsável/limites. `needs_correction` identifica o responsável, mas continua sem autorizar despacho. Persistência, idempotência de filas, execução de correção e homologação integrada são pendências explícitas.
 
 ## Implantação gradual
 1. Adotar padrão e validar handoffs offline, sem alterar agentes ativos.

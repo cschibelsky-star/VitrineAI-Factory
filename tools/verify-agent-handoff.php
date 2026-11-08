@@ -10,9 +10,9 @@ if ($argc !== 2 || !is_file($argv[1])) {
     exit(2);
 }
 $data = json_decode((string) file_get_contents($argv[1]), true);
-if (!is_array($data) || json_last_error() !== JSON_ERROR_NONE) {
-    fwrite(STDERR, "FAIL: invalid JSON\n");
-    exit(1);
+if (!is_array($data) || array_is_list($data) || json_last_error() !== JSON_ERROR_NONE) {
+    fwrite(STDERR, "FAIL: invalid JSON object\n");
+    exit(2);
 }
 $errors = [];
 $requiredText = static function (array $item, string $field, string $where = '') use (&$errors): void {
@@ -24,6 +24,7 @@ foreach (['task_id', 'repository', 'branch', 'agent_id', 'specialty', 'objective
     $requiredText($data, $field);
 }
 if (($data['schema_version'] ?? null) !== '1.0') $errors[] = 'unsupported schema_version';
+if (in_array($data['branch'] ?? '', ['main', 'master', 'production', 'prod'], true)) $errors[] = 'target branch must be isolated';
 if (($data['state'] ?? null) !== 'ready_for_via') $errors[] = 'state must be ready_for_via';
 if (!is_array($data['authorization'] ?? null) ||
     ($data['authorization']['approved_for_branch_write'] ?? null) !== true ||
@@ -77,8 +78,12 @@ if (!is_array($data['review'] ?? null) || ($data['review']['status'] ?? null) !=
     }
 }
 if (!isset($data['risks']) || !is_array($data['risks'])) $errors[] = 'risks must be array';
-if ($errors) {
-    foreach ($errors as $e) fwrite(STDERR, "FAIL: {$e}\n");
-    exit(1);
-}
-echo "PASS: ready_for_via (metadata only; evidence must be independently verified)\n";
+$result = [
+    'decision' => $errors === [] ? 'pending_external_verification' : 'blocked',
+    'can_advance' => false,
+    'evidence_verified' => false,
+    'failures' => $errors,
+];
+echo json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
+// Deliberately nonzero: valid metadata is not permission to execute another agent.
+exit($errors === [] ? 3 : 1);

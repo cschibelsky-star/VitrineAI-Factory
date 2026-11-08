@@ -11,7 +11,7 @@ $valid = [
  'risks'=>[],'state'=>'ready_for_via'
 ];
 $cases=[
- 'valid handoff'=>[$valid,0],
+ 'valid metadata remains pending'=>[$valid,3],
  'missing evidence'=>[array_replace_recursive($valid,['checks'=>[['id'=>'lint','required'=>true,'status'=>'passed','evidence'=>'']]]),1],
  'failed required check'=>[array_replace_recursive($valid,['checks'=>[['id'=>'lint','required'=>true,'status'=>'failed']]]),1],
  'not executed check'=>[array_replace_recursive($valid,['checks'=>[['id'=>'lint','required'=>true,'status'=>'not_run']]]),1],
@@ -22,6 +22,11 @@ $cases=[
  'review pending'=>[array_replace_recursive($valid,['review'=>['status'=>'pending']]),1],
  'no mandatory checks'=>[array_replace($valid,['checks'=>[['id'=>'info','required'=>false,'status'=>'passed','command'=>'x','evidence'=>'y']]]),1],
 ];
+foreach (['main', 'master', 'production', 'prod'] as $branch) {
+ $cases['protected branch '.$branch] = [array_replace($valid,['branch'=>$branch]),1];
+}
+$cases['needs correction cannot advance'] = [array_replace($valid,['state'=>'needs_correction']),1];
+$cases['rejected review'] = [array_replace_recursive($valid,['review'=>['status'=>'rejected']]),1];
 $failures=0;
 foreach($cases as $label=>[$payload,$expected]) {
  $file=tempnam(sys_get_temp_dir(),'via-gate-');
@@ -30,7 +35,11 @@ foreach($cases as $label=>[$payload,$expected]) {
  if (!is_resource($process)) {fwrite(STDERR,"FAIL: unable to start PHP\n");exit(2);}
  $out=stream_get_contents($pipes[1]); $err=stream_get_contents($pipes[2]);
  fclose($pipes[1]);fclose($pipes[2]);$code=proc_close($process);unlink($file);
- if($code!==$expected){$failures++;echo "FAIL {$label}: exit={$code}, expected={$expected}; {$out}{$err}\n";}
+ $decision=json_decode($out,true);
+ $safe=is_array($decision) && ($decision['can_advance'] ?? null)===false
+   && ($decision['evidence_verified'] ?? null)===false
+   && ($decision['decision'] ?? null)===($expected===3?'pending_external_verification':'blocked');
+ if($code!==$expected || !$safe){$failures++;echo "FAIL {$label}: exit={$code}, expected={$expected}; {$out}{$err}\n";}
  else echo "PASS {$label}\n";
 }
 exit($failures?1:0);
